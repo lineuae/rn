@@ -10,6 +10,37 @@ streamer.client.on("ready", () => {
 });
 
 let controller: AbortController;
+let keepAliveInterval: NodeJS.Timeout | null = null;
+
+// Fonction pour maintenir la connexion vocale active
+function startVoiceKeepAlive() {
+    if (keepAliveInterval) clearInterval(keepAliveInterval);
+    
+    // Envoyer un signal speaking toutes les 60 secondes pour garder la connexion active
+    keepAliveInterval = setInterval(() => {
+        if (streamer.voiceConnection) {
+            try {
+                streamer.voiceConnection.setSpeaking(true);
+                setTimeout(() => {
+                    if (streamer.voiceConnection) {
+                        streamer.voiceConnection.setSpeaking(false);
+                    }
+                }, 100);
+            } catch (error) {
+                console.log("[KEEPALIVE] Error sending speaking signal:", error);
+            }
+        }
+    }, 60000);
+    console.log("[KEEPALIVE] Voice keepalive started");
+}
+
+function stopVoiceKeepAlive() {
+    if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+        console.log("[KEEPALIVE] Voice keepalive stopped");
+    }
+}
 
 // message event
 streamer.client.on("messageCreate", async (msg) => {
@@ -89,6 +120,7 @@ streamer.client.on("messageCreate", async (msg) => {
             .catch(() => controller.abort());
     } else if (msg.content.startsWith("$disconnect")) {
         controller?.abort();
+        stopVoiceKeepAlive();
         streamer.leaveVoice();
         msg.edit("✅ Déconnecté du vocal").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
@@ -155,6 +187,10 @@ streamer.client.on("messageCreate", async (msg) => {
             await streamer.joinVoice(targetGuildId, channelId);
             console.log("[JOIN] Successfully joined voice");
             console.log("[JOIN] Voice connection exists:", !!streamer.voiceConnection);
+            
+            // Démarrer le keepalive pour maintenir la connexion
+            startVoiceKeepAlive();
+            
             msg.edit(`✅ Connecté à <#${channelId}> dans ${targetChannel.guild.name}`).catch(() => console.log("Cannot edit message"));
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         } catch (error) {
