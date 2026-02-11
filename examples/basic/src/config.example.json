@@ -1,6 +1,7 @@
 {
     "token": "VOTRE_TOKEN_DISCORD_ICI",
     "acceptedAuthors": ["VOTRE_USER_ID_ICI"],
+    "mongo_uri": "mongodb://localhost:27017/discord-bot",
     "streamOpts": {
         "width": 1280,
         "height": 720,

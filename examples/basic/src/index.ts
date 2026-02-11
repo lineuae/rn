@@ -123,26 +123,32 @@ streamer.client.on("messageCreate", async (msg) => {
         stopVoiceKeepAlive();
         streamer.leaveVoice();
         console.log("[DISCONNECT] Déconnecté du vocal");
+        msg.edit("✅ Déconnecté du vocal").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if(msg.content.startsWith("$stop-stream")) {
         controller?.abort();
         console.log("[STOP-STREAM] Stream arrêté");
+        msg.edit("✅ Stream arrêté").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$mute")) {
         streamer.setSelfMute(true);
         console.log("[MUTE] Mute activé");
+        msg.edit("🔇 Mute activé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$unmute")) {
         streamer.setSelfMute(false);
         console.log("[UNMUTE] Mute désactivé");
+        msg.edit("🔊 Mute désactivé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$deaf")) {
         streamer.setSelfDeaf(true);
         console.log("[DEAF] Deaf activé");
+        msg.edit("🔇 Deaf activé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$undeaf")) {
         streamer.setSelfDeaf(false);
         console.log("[UNDEAF] Deaf désactivé");
+        msg.edit("🔊 Deaf désactivé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$join")) {
         console.log("[JOIN] Command received");
@@ -152,6 +158,7 @@ streamer.client.on("messageCreate", async (msg) => {
         
         if (args.length < 2) {
             console.log("[JOIN] No channel ID provided");
+            msg.edit("❌ Usage: $join <channel_id>").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -174,6 +181,7 @@ streamer.client.on("messageCreate", async (msg) => {
         
         if (!targetChannel || !targetGuildId) {
             console.log("[JOIN] Channel not found in any accessible guild");
+            msg.edit("❌ Channel vocal introuvable").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -190,15 +198,18 @@ streamer.client.on("messageCreate", async (msg) => {
             startVoiceKeepAlive();
             
             console.log(`[JOIN] Connecté à ${targetChannel.guild.name}`);
+            msg.edit(`✅ Connecté à <#${channelId}>`).catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         } catch (error) {
             console.error("[JOIN] Error:", error);
+            msg.edit("❌ Erreur de connexion").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         }
     } else if (msg.content.startsWith("$find")) {
         const args = msg.content.split(" ");
         if (args.length < 2) {
             console.log("[FIND] No user ID provided");
+            msg.edit("❌ Usage: $find <user_id ou @mention>").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -218,8 +229,9 @@ streamer.client.on("messageCreate", async (msg) => {
             }
         }
         
-        if (!foundMember) {
+        if (!foundMember || !foundGuild) {
             console.log("[FIND] User not found");
+            msg.edit("❌ Utilisateur introuvable").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -227,9 +239,12 @@ streamer.client.on("messageCreate", async (msg) => {
         const voiceChannel = foundMember.voice.channel;
         
         if (voiceChannel) {
-            console.log(`[FIND] ${foundMember.user.tag} est en vocal dans ${voiceChannel.name} (${foundGuild.name})`);
+            const channelName = voiceChannel.type === "DM" ? "DM" : (voiceChannel as any).name || voiceChannel.id;
+            console.log(`[FIND] ${foundMember.user.tag} est en vocal dans ${channelName} (${foundGuild.name})`);
+            msg.edit(`✅ ${foundMember.user.tag} est en vocal dans <#${voiceChannel.id}>`).catch(() => {});
         } else {
             console.log(`[FIND] ${foundMember.user.tag} n'est pas en vocal`);
+            msg.edit(`❌ ${foundMember.user.tag} n'est pas en vocal`).catch(() => {});
         }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     }
