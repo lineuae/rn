@@ -121,17 +121,15 @@ streamer.client.on("messageCreate", async (msg) => {
         }
         
         const channelId = args[1];
-        const channel = msg.guild?.channels.cache.get(channelId);
         
-        if (!channel || (channel.type !== "GUILD_VOICE" && channel.type !== "GUILD_STAGE_VOICE")) {
-            await msg.edit("❌ Channel ID invalide ou ce n'est pas un salon vocal");
+        try {
+            await streamer.joinVoice(msg.guildId!, channelId);
+            await msg.edit(`✅ Connecté à <#${channelId}>`);
             setTimeout(() => msg.delete().catch(() => {}), 30000);
-            return;
+        } catch (error) {
+            await msg.edit(`❌ Erreur: ${error}`);
+            setTimeout(() => msg.delete().catch(() => {}), 30000);
         }
-        
-        await streamer.joinVoice(msg.guildId!, channelId);
-        await msg.edit(`✅ Connecté à <#${channelId}>`);
-        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$find")) {
         const args = msg.content.split(" ");
         if (args.length < 2) {
