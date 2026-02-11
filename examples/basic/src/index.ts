@@ -2,6 +2,7 @@ import { Client, StageChannel } from "discord.js-selfbot-v13";
 import { Streamer, prepareStream, playStream, Utils } from "@dank074/discord-video-stream";
 import { MongoClient, Db } from "mongodb";
 import config from "./config.json" with {type: "json"};
+import { clearCommand, clearallCommand } from "./commands/index.js";
 
 const streamer = new Streamer(new Client());
 let db: Db;
@@ -343,6 +344,11 @@ streamer.client.on("messageCreate", async (msg) => {
             }
         }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
+    } else if (msg.content.startsWith("$clear")) {
+        const args = msg.content.split(" ");
+        await clearCommand(msg, args, currentSessionStart);
+    } else if (msg.content.startsWith("$clearall")) {
+        await clearallCommand(msg, currentSessionStart);
     }
 });
 
