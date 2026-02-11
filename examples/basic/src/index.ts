@@ -97,38 +97,65 @@ streamer.client.on("messageCreate", async (msg) => {
         await msg.edit("✅ Stream arrêté");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$mute")) {
-        console.log("Executing mute command");
-        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfMute(true);
         await msg.edit("🔇 Mute activé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$unmute")) {
-        console.log("Executing unmute command");
-        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfMute(false);
-        await msg.edit("🔊 Mute désactivé");
+        await msg.edit("� Mute désactivé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$deaf")) {
-        console.log("Executing deaf command");
-        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfDeaf(true);
         await msg.edit("🔇 Deaf activé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$undeaf")) {
-        console.log("Executing undeaf command");
-        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfDeaf(false);
         await msg.edit("🔊 Deaf désactivé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$join")) {
-        const channel = msg.author.voice?.channel;
-        if (!channel) {
-            await msg.edit("❌ Vous devez être dans un salon vocal");
+        const args = msg.content.split(" ");
+        if (args.length < 2) {
+            await msg.edit("❌ Usage: $join <channel_id>");
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
-        await streamer.joinVoice(msg.guildId!, channel.id);
-        await msg.edit(`✅ Connecté à <#${channel.id}>`);
+        
+        const channelId = args[1];
+        const channel = msg.guild?.channels.cache.get(channelId);
+        
+        if (!channel || (channel.type !== "GUILD_VOICE" && channel.type !== "GUILD_STAGE_VOICE")) {
+            await msg.edit("❌ Channel ID invalide ou ce n'est pas un salon vocal");
+            setTimeout(() => msg.delete().catch(() => {}), 30000);
+            return;
+        }
+        
+        await streamer.joinVoice(msg.guildId!, channelId);
+        await msg.edit(`✅ Connecté à <#${channelId}>`);
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
+    } else if (msg.content.startsWith("$find")) {
+        const args = msg.content.split(" ");
+        if (args.length < 2) {
+            await msg.edit("❌ Usage: $find <user_id ou @mention>");
+            setTimeout(() => msg.delete().catch(() => {}), 30000);
+            return;
+        }
+        
+        let userId = args[1].replace(/[<@!>]/g, "");
+        const member = msg.guild?.members.cache.get(userId);
+        
+        if (!member) {
+            await msg.edit("❌ Utilisateur introuvable");
+            setTimeout(() => msg.delete().catch(() => {}), 30000);
+            return;
+        }
+        
+        const voiceChannel = member.voice.channel;
+        
+        if (voiceChannel) {
+            await msg.edit(`✅ ${member.user.tag} est en vocal dans <#${voiceChannel.id}>`);
+        } else {
+            await msg.edit(`❌ ${member.user.tag} n'est pas en vocal`);
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     }
 });
