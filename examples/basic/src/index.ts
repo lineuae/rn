@@ -113,20 +113,30 @@ streamer.client.on("messageCreate", async (msg) => {
         await msg.edit("🔊 Deaf désactivé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$join")) {
+        console.log("[JOIN] Command received");
         const args = msg.content.split(" ");
+        console.log("[JOIN] Args:", args);
+        
         if (args.length < 2) {
+            console.log("[JOIN] No channel ID provided");
             await msg.edit("❌ Usage: $join <channel_id>");
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
         
         const channelId = args[1];
+        console.log("[JOIN] Channel ID:", channelId);
+        console.log("[JOIN] Guild ID:", msg.guildId);
         
         try {
+            console.log("[JOIN] Attempting to join voice...");
             await streamer.joinVoice(msg.guildId!, channelId);
+            console.log("[JOIN] Successfully joined voice");
+            console.log("[JOIN] Voice connection exists:", !!streamer.voiceConnection);
             await msg.edit(`✅ Connecté à <#${channelId}>`);
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         } catch (error) {
+            console.error("[JOIN] Error:", error);
             await msg.edit(`❌ Erreur: ${error}`);
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         }
