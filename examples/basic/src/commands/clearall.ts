@@ -1,7 +1,6 @@
 import type { Message } from "discord.js-selfbot-v13";
 
 export async function clearallCommand(msg: Message, currentSessionStart: number) {
-    const isCurrentSession = msg.createdTimestamp >= currentSessionStart;
     
     try {
         console.log("[CLEARALL] Starting to delete all user messages in channel");
@@ -42,17 +41,12 @@ export async function clearallCommand(msg: Message, currentSessionStart: number)
         }
         
         console.log(`[CLEARALL] Deleted ${totalDeleted} messages in total`);
-        
-        if (isCurrentSession) {
-            msg.edit(`${totalDeleted} messages supprimés`).catch(() => {});
-        }
-        setTimeout(() => msg.delete().catch(() => {}), 30000);
+        msg.edit(`${totalDeleted} messages supprimes`).catch(() => {});
+        setTimeout(() => msg.delete().catch(() => {}), 5000);
         
     } catch (error) {
         console.error("[CLEARALL] Error:", error);
-        if (isCurrentSession) {
-            msg.edit("Erreur lors de la suppression").catch(() => {});
-        }
-        setTimeout(() => msg.delete().catch(() => {}), 30000);
+        msg.edit("Erreur lors de la suppression").catch(() => {});
+        setTimeout(() => msg.delete().catch(() => {}), 5000);
     }
 }
