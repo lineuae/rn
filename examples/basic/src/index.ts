@@ -27,8 +27,8 @@ streamer.client.on("messageCreate", async (msg) => {
 
         if(!channel) return;
 
-        console.log(`Attempting to join voice channel ${msg.guildId}/${channel.id}`);
-        await streamer.joinVoice(msg.guildId!, channel.id);
+        console.log(`Attempting to join voice channel ${msg.guild?.id}/${channel.id}`);
+        await streamer.joinVoice(msg.guild?.id!, channel.id);
 
         if (channel instanceof StageChannel)
         {
@@ -61,8 +61,8 @@ streamer.client.on("messageCreate", async (msg) => {
 
         if (!channel) return;
 
-        console.log(`Attempting to join voice channel ${msg.guildId}/${channel.id}`);
-        const vc = await streamer.joinVoice(msg.guildId!, channel.id);
+        console.log(`Attempting to join voice channel ${msg.guild?.id}/${channel.id}`);
+        const vc = await streamer.joinVoice(msg.guild?.id!, channel.id);
 
         if (channel instanceof StageChannel)
         {
@@ -126,11 +126,11 @@ streamer.client.on("messageCreate", async (msg) => {
         
         const channelId = args[1];
         console.log("[JOIN] Channel ID:", channelId);
-        console.log("[JOIN] Guild ID:", msg.guildId);
+        console.log("[JOIN] Guild ID:", msg.guild?.id);
         
         try {
             console.log("[JOIN] Attempting to join voice...");
-            await streamer.joinVoice(msg.guildId!, channelId);
+            await streamer.joinVoice(msg.guild?.id!, channelId);
             console.log("[JOIN] Successfully joined voice");
             console.log("[JOIN] Voice connection exists:", !!streamer.voiceConnection);
             await msg.edit(`✅ Connecté à <#${channelId}>`);
