@@ -262,7 +262,15 @@ export class Streamer {
    * @param mute true to mute, false to unmute
    */
   public setSelfMute(mute: boolean): void {
-    this.signalVideo(false, mute, false);
+    if (!this.voiceConnection) return;
+    const { guildId: guild_id, channelId: channel_id } = this.voiceConnection;
+    this.sendOpcode(GatewayOpCodes.VOICE_STATE_UPDATE, {
+      guild_id,
+      channel_id,
+      self_mute: mute,
+      self_deaf: false,
+      self_video: false,
+    });
   }
 
   /**
@@ -270,6 +278,14 @@ export class Streamer {
    * @param deaf true to deafen, false to undeafen
    */
   public setSelfDeaf(deaf: boolean): void {
-    this.signalVideo(false, false, deaf);
+    if (!this.voiceConnection) return;
+    const { guildId: guild_id, channelId: channel_id } = this.voiceConnection;
+    this.sendOpcode(GatewayOpCodes.VOICE_STATE_UPDATE, {
+      guild_id,
+      channel_id,
+      self_mute: deaf,
+      self_deaf: deaf,
+      self_video: false,
+    });
   }
 }

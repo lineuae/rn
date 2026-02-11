@@ -97,18 +97,26 @@ streamer.client.on("messageCreate", async (msg) => {
         await msg.edit("✅ Stream arrêté");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$mute")) {
+        console.log("Executing mute command");
+        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfMute(true);
         await msg.edit("🔇 Mute activé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$unmute")) {
+        console.log("Executing unmute command");
+        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfMute(false);
         await msg.edit("🔊 Mute désactivé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$deaf")) {
+        console.log("Executing deaf command");
+        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfDeaf(true);
         await msg.edit("🔇 Deaf activé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$undeaf")) {
+        console.log("Executing undeaf command");
+        console.log("Voice connection exists:", !!streamer.voiceConnection);
         streamer.setSelfDeaf(false);
         await msg.edit("🔊 Deaf désactivé");
         setTimeout(() => msg.delete().catch(() => {}), 30000);
