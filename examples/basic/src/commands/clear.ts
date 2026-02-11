@@ -18,17 +18,29 @@ export async function clearCommand(msg: Message, args: string[], currentSessionS
 
     try {
         console.log(`[CLEAR] Fetching messages to delete ${count} of user's messages`);
+        console.log(`[CLEAR] Channel type: ${msg.channel.type}`);
         
-        // Récupérer les messages du channel
-        const messages = await msg.channel.messages.fetch({ limit: 100 });
+        // Récupérer les messages du channel (fonctionne en DM et serveur)
+        let messages;
+        try {
+            messages = await (msg.channel as any).messages.fetch({ limit: 100 });
+        } catch (fetchError) {
+            console.error(`[CLEAR] Failed to fetch messages:`, fetchError);
+            msg.edit("Impossible de recuperer les messages").catch(() => {});
+            setTimeout(() => msg.delete().catch(() => {}), 5000);
+            return;
+        }
+        
+        console.log(`[CLEAR] Fetched ${messages.size} messages`);
         
         // Filtrer uniquement les messages de l'utilisateur
         const userMessages = messages.filter((m: any) => m.author.id === msg.author.id);
+        console.log(`[CLEAR] Found ${userMessages.size} user messages`);
         
         // Prendre les X premiers messages
         const toDelete = Array.from(userMessages.values()).slice(0, count);
         
-        console.log(`[CLEAR] Found ${toDelete.length} messages to delete`);
+        console.log(`[CLEAR] Will delete ${toDelete.length} messages`);
         
         // Supprimer les messages un par un
         let deleted = 0;
@@ -36,6 +48,7 @@ export async function clearCommand(msg: Message, args: string[], currentSessionS
             try {
                 await (message as any).delete();
                 deleted++;
+                console.log(`[CLEAR] Deleted message ${deleted}/${toDelete.length}`);
                 // Petit délai pour éviter le rate limit
                 await new Promise(resolve => setTimeout(resolve, 300));
             } catch (error) {
@@ -43,7 +56,7 @@ export async function clearCommand(msg: Message, args: string[], currentSessionS
             }
         }
         
-        console.log(`[CLEAR] Deleted ${deleted} messages`);
+        console.log(`[CLEAR] Deleted ${deleted} messages in total`);
         msg.edit(`${deleted} messages supprimes`).catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
         

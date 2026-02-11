@@ -54,7 +54,18 @@ async function restoreVoiceState() {
     try {
         const state = await db.collection("bot_state").findOne({ _id: "voice_state" });
         if (state && state.guildId && state.channelId) {
-            console.log("[MONGODB] Restoring voice state...");
+            console.log("[MONGODB] Found saved voice state");
+            
+            // Si le bot est déjà en vocal, se déconnecter d'abord
+            if (streamer.voiceConnection) {
+                console.log("[MONGODB] Bot already in voice, disconnecting first...");
+                stopVoiceKeepAlive();
+                streamer.leaveVoice();
+                // Attendre un peu pour que la déconnexion soit complète
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            console.log("[MONGODB] Reconnecting to voice channel...");
             await streamer.joinVoice(state.guildId, state.channelId);
             startVoiceKeepAlive();
             console.log(`[MONGODB] Reconnected to voice channel ${state.channelId}`);
