@@ -90,29 +90,38 @@ streamer.client.on("messageCreate", async (msg) => {
     } else if (msg.content.startsWith("$disconnect")) {
         controller?.abort();
         streamer.leaveVoice();
+        await msg.edit("✅ Déconnecté du vocal");
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if(msg.content.startsWith("$stop-stream")) {
         controller?.abort();
+        await msg.edit("✅ Stream arrêté");
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$mute")) {
         streamer.setSelfMute(true);
-        console.log("Muted");
+        await msg.edit("🔇 Mute activé");
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$unmute")) {
         streamer.setSelfMute(false);
-        console.log("Unmuted");
+        await msg.edit("🔊 Mute désactivé");
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$deaf")) {
         streamer.setSelfDeaf(true);
-        console.log("Deafened");
+        await msg.edit("🔇 Deaf activé");
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$undeaf")) {
         streamer.setSelfDeaf(false);
-        console.log("Undeafened");
+        await msg.edit("🔊 Deaf désactivé");
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$join")) {
         const channel = msg.author.voice?.channel;
         if (!channel) {
-            console.log("You must be in a voice channel");
+            await msg.edit("❌ Vous devez être dans un salon vocal");
+            setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
-        console.log(`Joining voice channel ${msg.guildId}/${channel.id}`);
         await streamer.joinVoice(msg.guildId!, channel.id);
-        console.log("Joined voice channel");
+        await msg.edit(`✅ Connecté à <#${channel.id}>`);
+        setTimeout(() => msg.delete().catch(() => {}), 30000);
     }
 });
 
