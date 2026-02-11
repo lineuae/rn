@@ -1,16 +1,74 @@
 import { Client, StageChannel } from "discord.js-selfbot-v13";
-import { Streamer, Utils, prepareStream, playStream } from "@dank074/discord-video-stream";
+import { Streamer, prepareStream, playStream, Utils } from "@dank074/discord-video-stream";
+import { MongoClient, Db } from "mongodb";
 import config from "./config.json" with {type: "json"};
 
 const streamer = new Streamer(new Client());
-
-// ready event
-streamer.client.on("ready", () => {
-    console.log(`--- ${streamer.client.user?.tag} is ready ---`);
-});
-
+let db: Db;
 let controller: AbortController;
 let keepAliveInterval: NodeJS.Timeout | null = null;
+let currentSessionStart = Date.now();
+
+// Connexion MongoDB
+async function connectMongoDB() {
+    try {
+        const client = new MongoClient(config.mongo_uri);
+        await client.connect();
+        db = client.db();
+        console.log("[MONGODB] Connected successfully");
+    } catch (error) {
+        console.error("[MONGODB] Connection failed:", error);
+    }
+}
+
+// Sauvegarder l'état vocal
+async function saveVoiceState(guildId: string, channelId: string) {
+    if (!db) return;
+    try {
+        await db.collection("bot_state").updateOne(
+            { _id: "voice_state" },
+            { $set: { guildId, channelId, timestamp: Date.now() } },
+            { upsert: true }
+        );
+        console.log("[MONGODB] Voice state saved");
+    } catch (error) {
+        console.error("[MONGODB] Failed to save voice state:", error);
+    }
+}
+
+// Supprimer l'état vocal
+async function clearVoiceState() {
+    if (!db) return;
+    try {
+        await db.collection("bot_state").deleteOne({ _id: "voice_state" });
+        console.log("[MONGODB] Voice state cleared");
+    } catch (error) {
+        console.error("[MONGODB] Failed to clear voice state:", error);
+    }
+}
+
+// Restaurer l'état vocal au démarrage
+async function restoreVoiceState() {
+    if (!db) return;
+    try {
+        const state = await db.collection("bot_state").findOne({ _id: "voice_state" });
+        if (state && state.guildId && state.channelId) {
+            console.log("[MONGODB] Restoring voice state...");
+            await streamer.joinVoice(state.guildId, state.channelId);
+            startVoiceKeepAlive();
+            console.log(`[MONGODB] Reconnected to voice channel ${state.channelId}`);
+        }
+    } catch (error) {
+        console.error("[MONGODB] Failed to restore voice state:", error);
+    }
+}
+
+// ready event
+streamer.client.on("ready", async () => {
+    console.log(`--- ${streamer.client.user?.tag} is ready ---`);
+    await connectMongoDB();
+    await restoreVoiceState();
+});
 
 // Fonction pour maintenir la connexion vocale active
 function startVoiceKeepAlive() {
@@ -40,6 +98,12 @@ function stopVoiceKeepAlive() {
         keepAliveInterval = null;
         console.log("[KEEPALIVE] Voice keepalive stopped");
     }
+}
+
+// Fonction pour vérifier si un message est de la session actuelle
+function isCurrentSession(msg: any): boolean {
+    // Un message est de la session actuelle s'il a été créé après le démarrage du bot
+    return msg.createdTimestamp >= currentSessionStart;
 }
 
 // message event
@@ -122,33 +186,46 @@ streamer.client.on("messageCreate", async (msg) => {
         controller?.abort();
         stopVoiceKeepAlive();
         streamer.leaveVoice();
+        await clearVoiceState();
         console.log("[DISCONNECT] Déconnecté du vocal");
-        msg.edit("✅ Déconnecté du vocal").catch(() => {});
+        if (isCurrentSession(msg)) {
+            msg.edit("Déconnecté du vocal").catch(() => {});
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if(msg.content.startsWith("$stop-stream")) {
         controller?.abort();
         console.log("[STOP-STREAM] Stream arrêté");
-        msg.edit("✅ Stream arrêté").catch(() => {});
+        if (isCurrentSession(msg)) {
+            msg.edit("Stream arrêté").catch(() => {});
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$mute")) {
         streamer.setSelfMute(true);
         console.log("[MUTE] Mute activé");
-        msg.edit("🔇 Mute activé").catch(() => {});
+        if (isCurrentSession(msg)) {
+            msg.edit("Mute activé").catch(() => {});
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$unmute")) {
         streamer.setSelfMute(false);
         console.log("[UNMUTE] Mute désactivé");
-        msg.edit("🔊 Mute désactivé").catch(() => {});
+        if (isCurrentSession(msg)) {
+            msg.edit("Mute désactivé").catch(() => {});
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$deaf")) {
         streamer.setSelfDeaf(true);
         console.log("[DEAF] Deaf activé");
-        msg.edit("🔇 Deaf activé").catch(() => {});
+        if (isCurrentSession(msg)) {
+            msg.edit("Deaf activé").catch(() => {});
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$undeaf")) {
         streamer.setSelfDeaf(false);
         console.log("[UNDEAF] Deaf désactivé");
-        msg.edit("🔊 Deaf désactivé").catch(() => {});
+        if (isCurrentSession(msg)) {
+            msg.edit("Deaf désactivé").catch(() => {});
+        }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$join")) {
         console.log("[JOIN] Command received");
@@ -158,7 +235,9 @@ streamer.client.on("messageCreate", async (msg) => {
         
         if (args.length < 2) {
             console.log("[JOIN] No channel ID provided");
-            msg.edit("❌ Usage: $join <channel_id>").catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit("Usage: $join <channel_id>").catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -181,7 +260,9 @@ streamer.client.on("messageCreate", async (msg) => {
         
         if (!targetChannel || !targetGuildId) {
             console.log("[JOIN] Channel not found in any accessible guild");
-            msg.edit("❌ Channel vocal introuvable").catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit("Channel vocal introuvable").catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -197,19 +278,28 @@ streamer.client.on("messageCreate", async (msg) => {
             // Démarrer le keepalive pour maintenir la connexion
             startVoiceKeepAlive();
             
+            // Sauvegarder l'état dans MongoDB
+            await saveVoiceState(targetGuildId, channelId);
+            
             console.log(`[JOIN] Connecté à ${targetChannel.guild.name}`);
-            msg.edit(`✅ Connecté à <#${channelId}>`).catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit(`Connecté à <#${channelId}>`).catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         } catch (error) {
             console.error("[JOIN] Error:", error);
-            msg.edit("❌ Erreur de connexion").catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit("Erreur de connexion").catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         }
     } else if (msg.content.startsWith("$find")) {
         const args = msg.content.split(" ");
         if (args.length < 2) {
             console.log("[FIND] No user ID provided");
-            msg.edit("❌ Usage: $find <user_id ou @mention>").catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit("Usage: $find <user_id ou @mention>").catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -231,7 +321,9 @@ streamer.client.on("messageCreate", async (msg) => {
         
         if (!foundMember || !foundGuild) {
             console.log("[FIND] User not found");
-            msg.edit("❌ Utilisateur introuvable").catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit("Utilisateur introuvable").catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
@@ -241,10 +333,14 @@ streamer.client.on("messageCreate", async (msg) => {
         if (voiceChannel) {
             const channelName = voiceChannel.type === "DM" ? "DM" : (voiceChannel as any).name || voiceChannel.id;
             console.log(`[FIND] ${foundMember.user.tag} est en vocal dans ${channelName} (${foundGuild.name})`);
-            msg.edit(`✅ ${foundMember.user.tag} est en vocal dans <#${voiceChannel.id}>`).catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit(`${foundMember.user.tag} est en vocal dans <#${voiceChannel.id}>`).catch(() => {});
+            }
         } else {
             console.log(`[FIND] ${foundMember.user.tag} n'est pas en vocal`);
-            msg.edit(`❌ ${foundMember.user.tag} n'est pas en vocal`).catch(() => {});
+            if (isCurrentSession(msg)) {
+                msg.edit(`${foundMember.user.tag} n'est pas en vocal`).catch(() => {});
+            }
         }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     }
