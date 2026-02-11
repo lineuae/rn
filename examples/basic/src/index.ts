@@ -56,7 +56,7 @@ async function saveVoiceState(guildId: string, channelId: string) {
     if (!db) return;
     try {
         await db.collection("bot_state").updateOne(
-            { _id: "voice_state" },
+            { _id: "voice_state" } as any,
             { $set: { guildId, channelId, timestamp: Date.now() } },
             { upsert: true }
         );
@@ -70,7 +70,7 @@ async function saveVoiceState(guildId: string, channelId: string) {
 async function clearVoiceState() {
     if (!db) return;
     try {
-        await db.collection("bot_state").deleteOne({ _id: "voice_state" });
+        await db.collection("bot_state").deleteOne({ _id: "voice_state" } as any);
         console.log("[MONGODB] Voice state cleared");
     } catch (error) {
         console.error("[MONGODB] Failed to clear voice state:", error);
@@ -81,7 +81,7 @@ async function clearVoiceState() {
 async function restoreVoiceState() {
     if (!db) return;
     try {
-        const state = await db.collection("bot_state").findOne({ _id: "voice_state" });
+        const state = await db.collection("bot_state").findOne({ _id: "voice_state" } as any);
         if (state && state.guildId && state.channelId) {
             console.log("[MONGODB] Found saved voice state");
             
