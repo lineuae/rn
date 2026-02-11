@@ -4,21 +4,49 @@ import { MongoClient, Db } from "mongodb";
 import config from "./config.json" with {type: "json"};
 import { clearCommand, clearallCommand } from "./commands/index.js";
 
+console.log("[STARTUP] Bot script starting...");
+console.log("[STARTUP] Config loaded:", {
+    hasToken: !!config.token,
+    hasMongoUri: !!config.mongo_uri,
+    mongoUri: config.mongo_uri ? config.mongo_uri.substring(0, 20) + "..." : "MISSING",
+    acceptedAuthors: config.acceptedAuthors.length
+});
+
 const streamer = new Streamer(new Client());
 let db: Db;
 let controller: AbortController;
 let keepAliveInterval: NodeJS.Timeout | null = null;
 let currentSessionStart = 0; // Sera défini quand le bot est ready
 
+console.log("[STARTUP] Streamer and client created");
+
 // Connexion MongoDB
 async function connectMongoDB() {
+    console.log("[MONGODB] Starting connection...");
+    console.log("[MONGODB] MongoDB URI:", config.mongo_uri ? config.mongo_uri.substring(0, 30) + "..." : "UNDEFINED");
+    
+    if (!config.mongo_uri) {
+        console.error("[MONGODB] ERROR: mongo_uri is not defined in config.json!");
+        return;
+    }
+    
     try {
+        console.log("[MONGODB] Creating MongoClient...");
         const client = new MongoClient(config.mongo_uri);
+        
+        console.log("[MONGODB] Attempting to connect...");
         await client.connect();
+        
+        console.log("[MONGODB] Getting database...");
         db = client.db();
-        console.log("[MONGODB] Connected successfully");
+        
+        console.log("[MONGODB] Connected successfully!");
+        console.log("[MONGODB] Database name:", db.databaseName);
     } catch (error) {
-        console.error("[MONGODB] Connection failed:", error);
+        console.error("[MONGODB] Connection failed!");
+        console.error("[MONGODB] Error type:", error.constructor.name);
+        console.error("[MONGODB] Error message:", error.message);
+        console.error("[MONGODB] Full error:", error);
     }
 }
 
@@ -77,21 +105,34 @@ async function restoreVoiceState() {
 
 // ready event
 streamer.client.on("ready", async () => {
-    console.log(`--- ${streamer.client.user?.tag} is ready ---`);
+    console.log("\n========================================");
+    console.log(`[READY] Bot is ready: ${streamer.client.user?.tag}`);
+    console.log("========================================\n");
     
     // Définir le timestamp de démarrage de cette session
     currentSessionStart = Date.now();
     console.log(`[SESSION] Session started at ${currentSessionStart}`);
+    console.log(`[SESSION] Current time: ${new Date().toISOString()}`);
     
     // Attendre un peu avant de connecter MongoDB
+    console.log("[SESSION] Waiting 2 seconds before MongoDB connection...");
     await new Promise(resolve => setTimeout(resolve, 2000));
     
+    console.log("[SESSION] Calling connectMongoDB()...");
     await connectMongoDB();
+    
+    console.log("[SESSION] Checking if MongoDB is connected...");
+    console.log(`[SESSION] db is defined: ${!!db}`);
     
     // Attendre que MongoDB soit connecté avant de restaurer
     if (db) {
+        console.log("[SESSION] MongoDB connected, restoring voice state...");
         await restoreVoiceState();
+    } else {
+        console.error("[SESSION] MongoDB NOT connected, skipping voice state restoration");
     }
+    
+    console.log("\n[SESSION] Bot initialization complete!\n");
 });
 
 // Fonction pour maintenir la connexion vocale active
@@ -348,7 +389,16 @@ streamer.client.on("messageCreate", async (msg) => {
 });
 
 // login
-streamer.client.login(config.token);
+console.log("[STARTUP] Attempting to login...");
+console.log("[STARTUP] Token exists:", !!config.token);
+streamer.client.login(config.token)
+    .then(() => {
+        console.log("[STARTUP] Login successful!");
+    })
+    .catch((error) => {
+        console.error("[STARTUP] Login failed!");
+        console.error("[STARTUP] Error:", error);
+    });
 
 function parseArgs(message: string): Args | undefined {
     const args = message.split(" ");
