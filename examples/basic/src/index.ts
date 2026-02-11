@@ -90,79 +90,113 @@ streamer.client.on("messageCreate", async (msg) => {
     } else if (msg.content.startsWith("$disconnect")) {
         controller?.abort();
         streamer.leaveVoice();
-        await msg.edit("✅ Déconnecté du vocal");
+        msg.edit("✅ Déconnecté du vocal").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if(msg.content.startsWith("$stop-stream")) {
         controller?.abort();
-        await msg.edit("✅ Stream arrêté");
+        msg.edit("✅ Stream arrêté").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$mute")) {
         streamer.setSelfMute(true);
-        await msg.edit("🔇 Mute activé");
+        msg.edit("🔇 Mute activé").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$unmute")) {
         streamer.setSelfMute(false);
-        await msg.edit("� Mute désactivé");
+        msg.edit("🔊 Mute désactivé").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$deaf")) {
         streamer.setSelfDeaf(true);
-        await msg.edit("🔇 Deaf activé");
+        msg.edit("🔇 Deaf activé").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$undeaf")) {
         streamer.setSelfDeaf(false);
-        await msg.edit("🔊 Deaf désactivé");
+        msg.edit("🔊 Deaf désactivé").catch(() => console.log("Cannot edit message"));
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     } else if (msg.content.startsWith("$join")) {
         console.log("[JOIN] Command received");
+        
         const args = msg.content.split(" ");
         console.log("[JOIN] Args:", args);
         
         if (args.length < 2) {
             console.log("[JOIN] No channel ID provided");
-            await msg.edit("❌ Usage: $join <channel_id>");
+            msg.edit("❌ Usage: $join <channel_id>").catch(() => console.log("Cannot edit message"));
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
         
         const channelId = args[1];
         console.log("[JOIN] Channel ID:", channelId);
-        console.log("[JOIN] Guild ID:", msg.guild?.id);
+        
+        // Chercher le channel dans tous les serveurs accessibles
+        let targetChannel = null;
+        let targetGuildId = null;
+        
+        for (const [guildId, guild] of streamer.client.guilds.cache) {
+            const channel = guild.channels.cache.get(channelId);
+            if (channel && (channel.type === "GUILD_VOICE" || channel.type === "GUILD_STAGE_VOICE")) {
+                targetChannel = channel;
+                targetGuildId = guildId;
+                break;
+            }
+        }
+        
+        if (!targetChannel || !targetGuildId) {
+            console.log("[JOIN] Channel not found in any accessible guild");
+            msg.edit("❌ Channel vocal introuvable dans les serveurs accessibles").catch(() => console.log("Cannot edit message"));
+            setTimeout(() => msg.delete().catch(() => {}), 30000);
+            return;
+        }
+        
+        console.log("[JOIN] Found channel in guild:", targetGuildId);
         
         try {
             console.log("[JOIN] Attempting to join voice...");
-            await streamer.joinVoice(msg.guild?.id!, channelId);
+            await streamer.joinVoice(targetGuildId, channelId);
             console.log("[JOIN] Successfully joined voice");
             console.log("[JOIN] Voice connection exists:", !!streamer.voiceConnection);
-            await msg.edit(`✅ Connecté à <#${channelId}>`);
+            msg.edit(`✅ Connecté à <#${channelId}> dans ${targetChannel.guild.name}`).catch(() => console.log("Cannot edit message"));
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         } catch (error) {
             console.error("[JOIN] Error:", error);
-            await msg.edit(`❌ Erreur: ${error}`);
+            msg.edit(`❌ Erreur lors de la connexion`).catch(() => console.log("Cannot edit message"));
             setTimeout(() => msg.delete().catch(() => {}), 30000);
         }
     } else if (msg.content.startsWith("$find")) {
         const args = msg.content.split(" ");
         if (args.length < 2) {
-            await msg.edit("❌ Usage: $find <user_id ou @mention>");
+            msg.edit("❌ Usage: $find <user_id ou @mention>").catch(() => console.log("Cannot edit message"));
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
         
         let userId = args[1].replace(/[<@!>]/g, "");
-        const member = msg.guild?.members.cache.get(userId);
         
-        if (!member) {
-            await msg.edit("❌ Utilisateur introuvable");
+        // Chercher l'utilisateur dans tous les serveurs
+        let foundMember = null;
+        let foundGuild = null;
+        
+        for (const [guildId, guild] of streamer.client.guilds.cache) {
+            const member = guild.members.cache.get(userId);
+            if (member) {
+                foundMember = member;
+                foundGuild = guild;
+                break;
+            }
+        }
+        
+        if (!foundMember) {
+            msg.edit("❌ Utilisateur introuvable dans les serveurs accessibles").catch(() => console.log("Cannot edit message"));
             setTimeout(() => msg.delete().catch(() => {}), 30000);
             return;
         }
         
-        const voiceChannel = member.voice.channel;
+        const voiceChannel = foundMember.voice.channel;
         
         if (voiceChannel) {
-            await msg.edit(`✅ ${member.user.tag} est en vocal dans <#${voiceChannel.id}>`);
+            msg.edit(`✅ ${foundMember.user.tag} est en vocal dans <#${voiceChannel.id}> (${foundGuild.name})`).catch(() => console.log("Cannot edit message"));
         } else {
-            await msg.edit(`❌ ${member.user.tag} n'est pas en vocal`);
+            msg.edit(`❌ ${foundMember.user.tag} n'est pas en vocal`).catch(() => console.log("Cannot edit message"));
         }
         setTimeout(() => msg.delete().catch(() => {}), 30000);
     }
