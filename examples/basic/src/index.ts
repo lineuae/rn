@@ -92,6 +92,27 @@ streamer.client.on("messageCreate", async (msg) => {
         streamer.leaveVoice();
     } else if(msg.content.startsWith("$stop-stream")) {
         controller?.abort();
+    } else if (msg.content.startsWith("$mute")) {
+        streamer.setSelfMute(true);
+        console.log("Muted");
+    } else if (msg.content.startsWith("$unmute")) {
+        streamer.setSelfMute(false);
+        console.log("Unmuted");
+    } else if (msg.content.startsWith("$deaf")) {
+        streamer.setSelfDeaf(true);
+        console.log("Deafened");
+    } else if (msg.content.startsWith("$undeaf")) {
+        streamer.setSelfDeaf(false);
+        console.log("Undeafened");
+    } else if (msg.content.startsWith("$join")) {
+        const channel = msg.author.voice?.channel;
+        if (!channel) {
+            console.log("You must be in a voice channel");
+            return;
+        }
+        console.log(`Joining voice channel ${msg.guildId}/${channel.id}`);
+        await streamer.joinVoice(msg.guildId!, channel.id);
+        console.log("Joined voice channel");
     }
 });
 

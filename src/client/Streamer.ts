@@ -196,14 +196,14 @@ export class Streamer {
     this._gatewayEmitter.removeAllListeners("VOICE_SERVER_UPDATE");
   }
 
-  public signalVideo(video_enabled: boolean): void {
+  public signalVideo(video_enabled: boolean, self_mute = false, self_deaf = true): void {
     if (!this.voiceConnection) return;
     const { guildId: guild_id, channelId: channel_id } = this.voiceConnection;
     this.sendOpcode(GatewayOpCodes.VOICE_STATE_UPDATE, {
       guild_id: guild_id,
       channel_id,
-      self_mute: false,
-      self_deaf: true,
+      self_mute,
+      self_deaf,
       self_video: video_enabled,
     });
   }
@@ -253,6 +253,38 @@ export class Streamer {
       channel_id: null,
       self_mute: true,
       self_deaf: false,
+      self_video: false,
+    });
+  }
+
+  /**
+   * Set self mute status in voice channel
+   * @param mute true to mute, false to unmute
+   */
+  public setSelfMute(mute: boolean): void {
+    if (!this.voiceConnection) return;
+    const { guildId: guild_id, channelId: channel_id } = this.voiceConnection;
+    this.sendOpcode(GatewayOpCodes.VOICE_STATE_UPDATE, {
+      guild_id,
+      channel_id,
+      self_mute: mute,
+      self_deaf: false,
+      self_video: false,
+    });
+  }
+
+  /**
+   * Set self deaf status in voice channel
+   * @param deaf true to deafen, false to undeafen
+   */
+  public setSelfDeaf(deaf: boolean): void {
+    if (!this.voiceConnection) return;
+    const { guildId: guild_id, channelId: channel_id } = this.voiceConnection;
+    this.sendOpcode(GatewayOpCodes.VOICE_STATE_UPDATE, {
+      guild_id,
+      channel_id,
+      self_mute: false,
+      self_deaf: deaf,
       self_video: false,
     });
   }
