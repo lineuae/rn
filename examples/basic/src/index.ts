@@ -7,8 +7,8 @@ import { clearCommand, clearallCommand } from "./commands/index.js";
 console.log("[STARTUP] Bot script starting...");
 console.log("[STARTUP] Config loaded:", {
     hasToken: !!config.token,
-    hasMongoUri: !!config.mongo_uri,
-    mongoUri: config.mongo_uri ? config.mongo_uri.substring(0, 20) + "..." : "MISSING",
+    hasMongoUri: !!(config as any).mongo_uri,
+    mongoUri: (config as any).mongo_uri ? (config as any).mongo_uri.substring(0, 20) + "..." : "MISSING",
     acceptedAuthors: config.acceptedAuthors.length
 });
 
@@ -23,16 +23,17 @@ console.log("[STARTUP] Streamer and client created");
 // Connexion MongoDB
 async function connectMongoDB() {
     console.log("[MONGODB] Starting connection...");
-    console.log("[MONGODB] MongoDB URI:", config.mongo_uri ? config.mongo_uri.substring(0, 30) + "..." : "UNDEFINED");
+    const mongoUri = (config as any).mongo_uri;
+    console.log("[MONGODB] MongoDB URI:", mongoUri ? mongoUri.substring(0, 30) + "..." : "UNDEFINED");
     
-    if (!config.mongo_uri) {
+    if (!mongoUri) {
         console.error("[MONGODB] ERROR: mongo_uri is not defined in config.json!");
         return;
     }
     
     try {
         console.log("[MONGODB] Creating MongoClient...");
-        const client = new MongoClient(config.mongo_uri);
+        const client = new MongoClient(mongoUri);
         
         console.log("[MONGODB] Attempting to connect...");
         await client.connect();
@@ -42,10 +43,10 @@ async function connectMongoDB() {
         
         console.log("[MONGODB] Connected successfully!");
         console.log("[MONGODB] Database name:", db.databaseName);
-    } catch (error) {
+    } catch (error: any) {
         console.error("[MONGODB] Connection failed!");
-        console.error("[MONGODB] Error type:", error.constructor.name);
-        console.error("[MONGODB] Error message:", error.message);
+        console.error("[MONGODB] Error type:", error?.constructor?.name || "Unknown");
+        console.error("[MONGODB] Error message:", error?.message || "No message");
         console.error("[MONGODB] Full error:", error);
     }
 }
@@ -172,7 +173,7 @@ function isCurrentSession(msg: any): boolean {
 }
 
 // message event
-streamer.client.on("messageCreate", async (msg) => {
+streamer.client.on("messageCreate", async (msg: any) => {
     if (msg.author.bot) return;
 
     if (!config.acceptedAuthors.includes(msg.author.id)) return;
@@ -207,7 +208,7 @@ streamer.client.on("messageCreate", async (msg) => {
             hardwareAcceleratedDecoding: config.streamOpts.hardware_acceleration,
             videoCodec: Utils.normalizeVideoCodec(config.streamOpts.videoCodec)
         }, controller.signal);
-        command.on("error", (err) => {
+        command.on("error", (err: any) => {
             console.log("An error happened with ffmpeg");
             console.log(err);
         });
@@ -241,7 +242,7 @@ streamer.client.on("messageCreate", async (msg) => {
             hardwareAcceleratedDecoding: config.streamOpts.hardware_acceleration,
             videoCodec: Utils.normalizeVideoCodec(config.streamOpts.videoCodec)
         }, controller.signal)
-        command.on("error", (err) => {
+        command.on("error", (err: any) => {
             console.log("An error happened with ffmpeg");
             console.log(err);
         });
@@ -395,7 +396,7 @@ streamer.client.login(config.token)
     .then(() => {
         console.log("[STARTUP] Login successful!");
     })
-    .catch((error) => {
+    .catch((error: any) => {
         console.error("[STARTUP] Login failed!");
         console.error("[STARTUP] Error:", error);
     });
