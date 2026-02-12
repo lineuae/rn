@@ -102,6 +102,9 @@ streamer.client.on("ready", async () => {
     console.log(`[✓] Bot ready: ${streamer.client.user?.tag}`);
     
     currentSessionStart = Date.now();
+    console.log(`[SESSION] Session started at ${currentSessionStart}`);
+    console.log(`[SESSION] Current time: ${new Date().toISOString()}`);
+    
     await new Promise(resolve => setTimeout(resolve, 2000));
     await connectMongoDB();
     
@@ -109,6 +112,8 @@ streamer.client.on("ready", async () => {
         startAutoReconnect();
         console.log("[✓] AutoVoc monitoring started");
     }
+    
+    console.log("[SESSION] Bot initialization complete!");
 });
 
 // Fonction pour maintenir la connexion vocale active
