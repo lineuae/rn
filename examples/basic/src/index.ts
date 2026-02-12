@@ -16,6 +16,7 @@ const streamer = new Streamer(new Client());
 let db: Db;
 let controller: AbortController;
 let keepAliveInterval: NodeJS.Timeout | null = null;
+let autoReconnectInterval: NodeJS.Timeout | null = null;
 let currentSessionStart = 0; // Sera défini quand le bot est ready
 
 console.log("[STARTUP] Streamer and client created");
@@ -77,6 +78,48 @@ async function clearVoiceState() {
     }
 }
 
+// Sauvegarder l'état autovoc
+async function saveAutoVocState(guildId: string, channelId: string, enabled: boolean) {
+    if (!db) return;
+    try {
+        await db.collection("bot_state").updateOne(
+            { _id: "autovoc_state" } as any,
+            { $set: { guildId, channelId, enabled, timestamp: Date.now() } },
+            { upsert: true }
+        );
+        console.log("[MONGODB] AutoVoc state saved:", { enabled, channelId });
+    } catch (error) {
+        console.error("[MONGODB] Failed to save autovoc state:", error);
+    }
+}
+
+// Récupérer l'état autovoc
+async function getAutoVocState() {
+    if (!db) return null;
+    try {
+        const state = await db.collection("bot_state").findOne({ _id: "autovoc_state" } as any);
+        return state;
+    } catch (error) {
+        console.error("[MONGODB] Failed to get autovoc state:", error);
+        return null;
+    }
+}
+
+// Désactiver l'autovoc
+async function disableAutoVoc() {
+    if (!db) return;
+    try {
+        await db.collection("bot_state").updateOne(
+            { _id: "autovoc_state" } as any,
+            { $set: { enabled: false, timestamp: Date.now() } },
+            { upsert: true }
+        );
+        console.log("[MONGODB] AutoVoc disabled");
+    } catch (error) {
+        console.error("[MONGODB] Failed to disable autovoc:", error);
+    }
+}
+
 // Restaurer l'état vocal au démarrage
 async function restoreVoiceState() {
     if (!db) return;
@@ -129,6 +172,10 @@ streamer.client.on("ready", async () => {
     if (db) {
         console.log("[SESSION] MongoDB connected, restoring voice state...");
         await restoreVoiceState();
+        
+        // Démarrer le système d'auto-reconnexion
+        console.log("[SESSION] Starting auto-reconnect monitoring...");
+        startAutoReconnect();
     } else {
         console.error("[SESSION] MongoDB NOT connected, skipping voice state restoration");
     }
@@ -163,6 +210,44 @@ function stopVoiceKeepAlive() {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
         console.log("[KEEPALIVE] Voice keepalive stopped");
+    }
+}
+
+// Fonction pour démarrer l'auto-reconnexion
+function startAutoReconnect() {
+    if (autoReconnectInterval) clearInterval(autoReconnectInterval);
+    
+    // Vérifier la connexion toutes les 30 secondes
+    autoReconnectInterval = setInterval(async () => {
+        try {
+            const autoVocState = await getAutoVocState();
+            
+            // Si l'autovoc est activé et que le bot n'est pas connecté
+            if (autoVocState && autoVocState.enabled && !streamer.voiceConnection) {
+                console.log("[AUTOVOC] Bot disconnected, attempting reconnection...");
+                console.log("[AUTOVOC] Target channel:", autoVocState.channelId);
+                
+                try {
+                    await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
+                    startVoiceKeepAlive();
+                    console.log("[AUTOVOC] Successfully reconnected to voice channel");
+                } catch (error) {
+                    console.error("[AUTOVOC] Failed to reconnect:", error);
+                }
+            }
+        } catch (error) {
+            console.error("[AUTOVOC] Error in auto-reconnect check:", error);
+        }
+    }, 30000); // Toutes les 30 secondes
+    
+    console.log("[AUTOVOC] Auto-reconnect monitoring started");
+}
+
+function stopAutoReconnect() {
+    if (autoReconnectInterval) {
+        clearInterval(autoReconnectInterval);
+        autoReconnectInterval = null;
+        console.log("[AUTOVOC] Auto-reconnect monitoring stopped");
     }
 }
 
@@ -381,6 +466,69 @@ streamer.client.on("messageCreate", async (msg: any) => {
             msg.edit(`${foundMember.user.tag} n'est pas en vocal`).catch(() => {});
         }
         setTimeout(() => msg.delete().catch(() => {}), 5000);
+    } else if (msg.content.startsWith("$autovoc")) {
+        console.log("[AUTOVOC] Command received");
+        
+        const args = msg.content.split(" ");
+        console.log("[AUTOVOC] Args:", args);
+        
+        // Si pas d'argument, désactiver l'autovoc
+        if (args.length < 2) {
+            console.log("[AUTOVOC] No channel ID provided, disabling autovoc");
+            await disableAutoVoc();
+            msg.edit("AutoVoc desactive").catch(() => {});
+            setTimeout(() => msg.delete().catch(() => {}), 5000);
+            return;
+        }
+        
+        const channelId = args[1];
+        console.log("[AUTOVOC] Channel ID:", channelId);
+        
+        // Chercher le channel dans tous les serveurs accessibles
+        let targetChannel = null;
+        let targetGuildId = null;
+        
+        for (const [guildId, guild] of streamer.client.guilds.cache) {
+            const channel = guild.channels.cache.get(channelId);
+            if (channel && (channel.type === "GUILD_VOICE" || channel.type === "GUILD_STAGE_VOICE")) {
+                targetChannel = channel;
+                targetGuildId = guildId;
+                break;
+            }
+        }
+        
+        if (!targetChannel || !targetGuildId) {
+            console.log("[AUTOVOC] Channel not found in any accessible guild");
+            msg.edit("Channel vocal introuvable").catch(() => {});
+            setTimeout(() => msg.delete().catch(() => {}), 5000);
+            return;
+        }
+        
+        console.log("[AUTOVOC] Found channel in guild:", targetGuildId);
+        
+        try {
+            // Sauvegarder l'état autovoc comme activé
+            await saveAutoVocState(targetGuildId, channelId, true);
+            
+            // Rejoindre le canal immédiatement
+            console.log("[AUTOVOC] Attempting to join voice...");
+            await streamer.joinVoice(targetGuildId, channelId);
+            console.log("[AUTOVOC] Successfully joined voice");
+            
+            // Démarrer le keepalive
+            startVoiceKeepAlive();
+            
+            // Sauvegarder aussi dans voice_state pour la restauration au démarrage
+            await saveVoiceState(targetGuildId, channelId);
+            
+            console.log(`[AUTOVOC] AutoVoc activé pour <#${channelId}>`);
+            msg.edit(`AutoVoc active pour <#${channelId}>`).catch(() => {});
+            setTimeout(() => msg.delete().catch(() => {}), 5000);
+        } catch (error) {
+            console.error("[AUTOVOC] Error:", error);
+            msg.edit("Erreur d'activation de l'autovoc").catch(() => {});
+            setTimeout(() => msg.delete().catch(() => {}), 5000);
+        }
     } else if (msg.content.startsWith("$clear")) {
         const args = msg.content.split(" ");
         await clearCommand(msg, args, currentSessionStart);
