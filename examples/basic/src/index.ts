@@ -120,32 +120,8 @@ async function disableAutoVoc() {
     }
 }
 
-// Restaurer l'état vocal au démarrage
-async function restoreVoiceState() {
-    if (!db) return;
-    try {
-        const state = await db.collection("bot_state").findOne({ _id: "voice_state" } as any);
-        if (state && state.guildId && state.channelId) {
-            console.log("[MONGODB] Found saved voice state");
-            
-            // Si le bot est déjà en vocal, se déconnecter d'abord
-            if (streamer.voiceConnection) {
-                console.log("[MONGODB] Bot already in voice, disconnecting first...");
-                stopVoiceKeepAlive();
-                streamer.leaveVoice();
-                // Attendre un peu pour que la déconnexion soit complète
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-            
-            console.log("[MONGODB] Reconnecting to voice channel...");
-            await streamer.joinVoice(state.guildId, state.channelId);
-            startVoiceKeepAlive();
-            console.log(`[MONGODB] Reconnected to voice channel ${state.channelId}`);
-        }
-    } catch (error) {
-        console.error("[MONGODB] Failed to restore voice state:", error);
-    }
-}
+// Note: La restauration automatique au démarrage a été retirée
+// Utilisez $autovoc <channel_id> pour activer la reconnexion automatique
 
 // ready event
 streamer.client.on("ready", async () => {
@@ -168,16 +144,15 @@ streamer.client.on("ready", async () => {
     console.log("[SESSION] Checking if MongoDB is connected...");
     console.log(`[SESSION] db is defined: ${!!db}`);
     
-    // Attendre que MongoDB soit connecté avant de restaurer
+    // Attendre que MongoDB soit connecté
     if (db) {
-        console.log("[SESSION] MongoDB connected, restoring voice state...");
-        await restoreVoiceState();
+        console.log("[SESSION] MongoDB connected successfully");
         
-        // Démarrer le système d'auto-reconnexion
+        // Démarrer le système d'auto-reconnexion (vérifie si autovoc est activé)
         console.log("[SESSION] Starting auto-reconnect monitoring...");
         startAutoReconnect();
     } else {
-        console.error("[SESSION] MongoDB NOT connected, skipping voice state restoration");
+        console.error("[SESSION] MongoDB NOT connected");
     }
     
     console.log("\n[SESSION] Bot initialization complete!\n");
@@ -217,7 +192,7 @@ function stopVoiceKeepAlive() {
 function startAutoReconnect() {
     if (autoReconnectInterval) clearInterval(autoReconnectInterval);
     
-    // Vérifier la connexion toutes les 30 secondes
+    // Vérifier la connexion toutes les 10 minutes
     autoReconnectInterval = setInterval(async () => {
         try {
             const autoVocState = await getAutoVocState();
@@ -229,6 +204,11 @@ function startAutoReconnect() {
                 
                 try {
                     await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
+                    
+                    // Activer deaf automatiquement lors de la reconnexion
+                    streamer.setSelfDeaf(true);
+                    console.log("[AUTOVOC] Self-deaf activated");
+                    
                     startVoiceKeepAlive();
                     console.log("[AUTOVOC] Successfully reconnected to voice channel");
                 } catch (error) {
@@ -238,7 +218,7 @@ function startAutoReconnect() {
         } catch (error) {
             console.error("[AUTOVOC] Error in auto-reconnect check:", error);
         }
-    }, 30000); // Toutes les 30 secondes
+    }, 600000); // Toutes les 10 minutes (600000 ms)
     
     console.log("[AUTOVOC] Auto-reconnect monitoring started");
 }
@@ -515,11 +495,12 @@ streamer.client.on("messageCreate", async (msg: any) => {
             await streamer.joinVoice(targetGuildId, channelId);
             console.log("[AUTOVOC] Successfully joined voice");
             
+            // Activer deaf automatiquement
+            streamer.setSelfDeaf(true);
+            console.log("[AUTOVOC] Self-deaf activated");
+            
             // Démarrer le keepalive
             startVoiceKeepAlive();
-            
-            // Sauvegarder aussi dans voice_state pour la restauration au démarrage
-            await saveVoiceState(targetGuildId, channelId);
             
             console.log(`[AUTOVOC] AutoVoc activé pour <#${channelId}>`);
             msg.edit(`AutoVoc active pour <#${channelId}>`).catch(() => {});
