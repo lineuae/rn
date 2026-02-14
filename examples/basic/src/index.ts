@@ -262,28 +262,28 @@ streamer.client.on("messageCreate", async (msg: any) => {
         streamer.leaveVoice();
         await clearVoiceState();
         console.log("[✓] Disconnected from voice");
-        msg.edit("Deconnecte du vocal").catch(() => {});
+        msg.edit("Deconnecté du vocal").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if(msg.content.startsWith("$stop-stream")) {
         controller?.abort();
         console.log("[✓] Stream stopped");
-        msg.edit("Stream arrete").catch(() => {});
+        msg.edit("Stream arreté").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$mute")) {
         streamer.setSelfMute(true);
-        msg.edit("Mute active").catch(() => {});
+        msg.edit("Mute activé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$unmute")) {
         streamer.setSelfMute(false);
-        msg.edit("Mute desactive").catch(() => {});
+        msg.edit("Mute desactivé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$deaf")) {
         streamer.setSelfDeaf(true);
-        msg.edit("Deaf active").catch(() => {});
+        msg.edit("Deaf activé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$undeaf")) {
         streamer.setSelfDeaf(false);
-        msg.edit("Deaf desactive").catch(() => {});
+        msg.edit("Deaf désactivé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$join")) {
         const args = msg.content.split(" ");
@@ -318,7 +318,7 @@ streamer.client.on("messageCreate", async (msg: any) => {
             startVoiceKeepAlive();
             await saveVoiceState(targetGuildId, channelId);
             console.log(`[✓] Joined voice: ${targetChannel.guild.name}`);
-            msg.edit(`Connecte a <#${channelId}>`).catch(() => {});
+            msg.edit(`Connecté a <#${channelId}>`).catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
         } catch (error) {
             console.error("[✗] Join failed:", error);
@@ -366,7 +366,7 @@ streamer.client.on("messageCreate", async (msg: any) => {
         if (args.length < 2) {
             await disableAutoVoc();
             console.log("[✓] AutoVoc disabled");
-            msg.edit("AutoVoc desactive").catch(() => {});
+            msg.edit("AutoVoc désactivé").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
             return;
         }
@@ -396,7 +396,7 @@ streamer.client.on("messageCreate", async (msg: any) => {
             streamer.setSelfDeaf(true);
             startVoiceKeepAlive();
             console.log(`[✓] AutoVoc enabled: ${targetChannel.guild.name}`);
-            msg.edit(`AutoVoc active pour <#${channelId}>`).catch(() => {});
+            msg.edit(`AutoVoc activé pour <#${channelId}>`).catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
         } catch (error) {
             console.error("[✗] AutoVoc activation failed:", error);
