@@ -131,7 +131,25 @@ streamer.client.on("voiceStateUpdate", async (oldState: any, newState: any) => {
         setTimeout(async () => {
             console.log("[AUTOVOC] Checking connection state...");
             console.log("[AUTOVOC] voiceConnection exists:", !!streamer.voiceConnection);
-            await attemptAutoReconnect();
+            
+            // Si voiceConnection existe encore, forcer la déconnexion
+            if (streamer.voiceConnection) {
+                console.log("[AUTOVOC] Forcing voiceConnection cleanup...");
+                try {
+                    streamer.leaveVoice();
+                } catch (e) {
+                    console.log("[AUTOVOC] Error during cleanup:", e);
+                }
+                
+                // Vérifier à nouveau après 1 minute
+                console.log("[AUTOVOC] Scheduling retry in 60 seconds...");
+                setTimeout(async () => {
+                    console.log("[AUTOVOC] Retry after 60 seconds");
+                    await attemptAutoReconnect();
+                }, 60000);
+            } else {
+                await attemptAutoReconnect();
+            }
         }, 3000);
     }
 });
@@ -178,10 +196,16 @@ async function attemptAutoReconnect() {
             return;
         }
         
-        // Vérifier si le bot est vraiment déconnecté
+        // Si voiceConnection existe encore, forcer la déconnexion
         if (streamer.voiceConnection) {
-            console.log("[AUTOVOC] Bot still connected, skipping reconnection");
-            return;
+            console.log("[AUTOVOC] Cleaning up existing voiceConnection before reconnect...");
+            try {
+                streamer.leaveVoice();
+                // Attendre un peu que la déconnexion se fasse
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (e) {
+                console.log("[AUTOVOC] Error during cleanup:", e);
+            }
         }
         
         console.log("[AUTOVOC] Bot disconnected, attempting reconnection...");
