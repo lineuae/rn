@@ -11,6 +11,7 @@ let keepAliveInterval: NodeJS.Timeout | null = null;
 let autoReconnectInterval: NodeJS.Timeout | null = null;
 let currentSessionStart = 0;
 let isReconnecting = false;
+let isCleaningUp = false;
 
 // Connexion MongoDB
 async function connectMongoDB() {
@@ -124,33 +125,18 @@ streamer.client.on("voiceStateUpdate", async (oldState: any, newState: any) => {
     
     // Si le bot vient de se déconnecter d'un canal vocal
     if (oldState.channelId && !newState.channelId) {
-        console.log("[AUTOVOC] Bot disconnected from voice channel");
-        console.log("[AUTOVOC] Waiting 3 seconds before reconnection attempt...");
+        // Ignorer les déconnexions causées par le nettoyage automatique
+        if (isCleaningUp) {
+            console.log("[AUTOVOC] Ignoring cleanup-triggered disconnect");
+            return;
+        }
         
-        // Attendre 3 secondes pour que voiceConnection se nettoie
+        console.log("[AUTOVOC] Bot disconnected from voice channel");
+        
+        // Attendre 5 secondes avant de tenter la reconnexion
         setTimeout(async () => {
-            console.log("[AUTOVOC] Checking connection state...");
-            console.log("[AUTOVOC] voiceConnection exists:", !!streamer.voiceConnection);
-            
-            // Si voiceConnection existe encore, forcer la déconnexion
-            if (streamer.voiceConnection) {
-                console.log("[AUTOVOC] Forcing voiceConnection cleanup...");
-                try {
-                    streamer.leaveVoice();
-                } catch (e) {
-                    console.log("[AUTOVOC] Error during cleanup:", e);
-                }
-                
-                // Vérifier à nouveau après 1 minute
-                console.log("[AUTOVOC] Scheduling retry in 60 seconds...");
-                setTimeout(async () => {
-                    console.log("[AUTOVOC] Retry after 60 seconds");
-                    await attemptAutoReconnect();
-                }, 60000);
-            } else {
-                await attemptAutoReconnect();
-            }
-        }, 3000);
+            await attemptAutoReconnect();
+        }, 5000);
     }
 });
 
@@ -192,23 +178,23 @@ async function attemptAutoReconnect() {
         const autoVocState = await getAutoVocState();
         
         if (!autoVocState || !autoVocState.enabled) {
-            console.log("[AUTOVOC] AutoVoc not enabled, skipping reconnection");
             return;
         }
         
         // Si voiceConnection existe encore, forcer la déconnexion
         if (streamer.voiceConnection) {
-            console.log("[AUTOVOC] Cleaning up existing voiceConnection before reconnect...");
+            console.log("[AUTOVOC] Cleaning up stale voiceConnection...");
+            isCleaningUp = true;
             try {
                 streamer.leaveVoice();
-                // Attendre un peu que la déconnexion se fasse
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 2000));
             } catch (e) {
-                console.log("[AUTOVOC] Error during cleanup:", e);
+                console.log("[AUTOVOC] Cleanup error:", e);
             }
+            isCleaningUp = false;
         }
         
-        console.log("[AUTOVOC] Bot disconnected, attempting reconnection...");
+        console.log("[AUTOVOC] Attempting reconnection...");
         isReconnecting = true;
         
         try {
