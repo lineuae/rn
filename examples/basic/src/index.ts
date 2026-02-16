@@ -125,11 +125,14 @@ streamer.client.on("voiceStateUpdate", async (oldState: any, newState: any) => {
     // Si le bot vient de se déconnecter d'un canal vocal
     if (oldState.channelId && !newState.channelId) {
         console.log("[AUTOVOC] Bot disconnected from voice channel");
+        console.log("[AUTOVOC] Waiting 3 seconds before reconnection attempt...");
         
-        // Attendre 5 secondes avant de tenter la reconnexion
+        // Attendre 3 secondes pour que voiceConnection se nettoie
         setTimeout(async () => {
+            console.log("[AUTOVOC] Checking connection state...");
+            console.log("[AUTOVOC] voiceConnection exists:", !!streamer.voiceConnection);
             await attemptAutoReconnect();
-        }, 5000);
+        }, 3000);
     }
 });
 
@@ -171,11 +174,13 @@ async function attemptAutoReconnect() {
         const autoVocState = await getAutoVocState();
         
         if (!autoVocState || !autoVocState.enabled) {
+            console.log("[AUTOVOC] AutoVoc not enabled, skipping reconnection");
             return;
         }
         
         // Vérifier si le bot est vraiment déconnecté
         if (streamer.voiceConnection) {
+            console.log("[AUTOVOC] Bot still connected, skipping reconnection");
             return;
         }
         
