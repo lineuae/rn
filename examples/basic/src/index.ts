@@ -175,9 +175,7 @@ async function attemptAutoReconnect() {
         }
         
         // Vérifier si le bot est vraiment déconnecté
-        const isConnected = streamer.voiceConnection && streamer.voiceConnection.state?.status === 'ready';
-        
-        if (isConnected) {
+        if (streamer.voiceConnection) {
             return;
         }
         
