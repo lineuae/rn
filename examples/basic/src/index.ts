@@ -10,8 +10,6 @@ let controller: AbortController;
 let keepAliveInterval: NodeJS.Timeout | null = null;
 let autoReconnectInterval: NodeJS.Timeout | null = null;
 let currentSessionStart = 0;
-let isReconnecting = false;
-let isCleaningUp = false;
 
 // Connexion MongoDB
 async function connectMongoDB() {
@@ -96,9 +94,6 @@ async function disableAutoVoc() {
     }
 }
 
-// Note: La restauration automatique au démarrage a été retirée
-// Utilisez $autovoc <channel_id> pour activer la reconnexion automatique
-
 // ready event
 streamer.client.on("ready", async () => {
     console.log(`[✓] Bot ready: ${streamer.client.user?.tag}`);
@@ -111,34 +106,28 @@ streamer.client.on("ready", async () => {
     await connectMongoDB();
     
     if (db) {
+        // Connexion automatique au démarrage si AutoVoc activé
+        const autoVocState = await getAutoVocState();
+        if (autoVocState && autoVocState.enabled) {
+            console.log("[AUTOVOC] Connecting to voice channel...");
+            try {
+                await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
+                streamer.setSelfDeaf(true);
+                startVoiceKeepAlive();
+                console.log("[✓] AutoVoc connected");
+            } catch (error) {
+                console.error("[✗] AutoVoc connection failed:", error);
+            }
+        }
+        
+        // Démarrer la vérification périodique
         startAutoReconnect();
-        console.log("[✓] AutoVoc monitoring started");
+        console.log("[✓] AutoVoc monitoring started (check every 10 min)");
     }
     
     console.log("[SESSION] Bot initialization complete!");
 });
 
-// Événement de changement d'état vocal pour détecter les déconnexions
-streamer.client.on("voiceStateUpdate", async (oldState: any, newState: any) => {
-    // Vérifier si c'est le bot lui-même
-    if (newState.id !== streamer.client.user?.id) return;
-    
-    // Si le bot vient de se déconnecter d'un canal vocal
-    if (oldState.channelId && !newState.channelId) {
-        // Ignorer les déconnexions causées par le nettoyage automatique
-        if (isCleaningUp) {
-            console.log("[AUTOVOC] Ignoring cleanup-triggered disconnect");
-            return;
-        }
-        
-        console.log("[AUTOVOC] Bot disconnected from voice channel");
-        
-        // Attendre 5 secondes avant de tenter la reconnexion
-        setTimeout(async () => {
-            await attemptAutoReconnect();
-        }, 5000);
-    }
-});
 
 // Fonction pour maintenir la connexion vocale active
 function startVoiceKeepAlive() {
@@ -167,60 +156,35 @@ function stopVoiceKeepAlive() {
     }
 }
 
-// Fonction pour tenter une reconnexion AutoVoc
-async function attemptAutoReconnect() {
-    if (isReconnecting) {
-        console.log("[AUTOVOC] Reconnection already in progress, skipping");
-        return;
-    }
-    
-    try {
-        const autoVocState = await getAutoVocState();
-        
-        if (!autoVocState || !autoVocState.enabled) {
-            return;
-        }
-        
-        // Si voiceConnection existe encore, forcer la déconnexion
-        if (streamer.voiceConnection) {
-            console.log("[AUTOVOC] Cleaning up stale voiceConnection...");
-            isCleaningUp = true;
-            try {
-                streamer.leaveVoice();
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            } catch (e) {
-                console.log("[AUTOVOC] Cleanup error:", e);
-            }
-            isCleaningUp = false;
-        }
-        
-        console.log("[AUTOVOC] Attempting reconnection...");
-        isReconnecting = true;
-        
-        try {
-            await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
-            streamer.setSelfDeaf(true);
-            startVoiceKeepAlive();
-            console.log("[✓] AutoVoc reconnected");
-        } catch (error) {
-            console.error("[✗] AutoVoc reconnection failed:", error);
-        } finally {
-            isReconnecting = false;
-        }
-    } catch (error) {
-        console.error("[✗] AutoVoc check error:", error);
-        isReconnecting = false;
-    }
-}
-
-// Fonction pour démarrer l'auto-reconnexion
+// Vérification périodique toutes les 10 minutes
 function startAutoReconnect() {
     if (autoReconnectInterval) clearInterval(autoReconnectInterval);
     
-    // Vérifier toutes les 2 minutes au lieu de 10
     autoReconnectInterval = setInterval(async () => {
-        await attemptAutoReconnect();
-    }, 120000);
+        try {
+            const autoVocState = await getAutoVocState();
+            
+            // Si AutoVoc n'est pas activé, ne rien faire
+            if (!autoVocState || !autoVocState.enabled) {
+                return;
+            }
+            
+            // Si le bot n'est pas connecté, le reconnecter
+            if (!streamer.voiceConnection) {
+                console.log("[AUTOVOC] Bot not in voice, reconnecting...");
+                try {
+                    await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
+                    streamer.setSelfDeaf(true);
+                    startVoiceKeepAlive();
+                    console.log("[✓] AutoVoc reconnected");
+                } catch (error) {
+                    console.error("[✗] AutoVoc reconnection failed:", error);
+                }
+            }
+        } catch (error) {
+            console.error("[✗] AutoVoc check error:", error);
+        }
+    }, 600000); // 10 minutes
 }
 
 function stopAutoReconnect() {
