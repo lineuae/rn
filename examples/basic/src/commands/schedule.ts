@@ -40,7 +40,7 @@ export async function scheduleCommand(msg: Message, args: string[], db: Db | nul
 
     const delay = parseTime(timeStr);
     if (delay === null) {
-        msg.edit("❌ Format de temps invalide. Utilisez: `10s`, `5m`, `2h`, `1d`").catch(() => {});
+        msg.edit("**ERREUR**\nFormat de temps invalide. Utilisez: \`10s\`, \`5m\`, \`2h\`, \`1d\`").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
         return;
     }
@@ -70,12 +70,12 @@ export async function scheduleCommand(msg: Message, args: string[], db: Db | nul
         }
 
         const delayStr = formatDelay(delay);
-        msg.edit(`✅ Commande programmée: \`${command}\`\nExécution dans: ${delayStr}`).catch(() => {});
+        msg.edit(`**COMMANDE PROGRAMMEE**\nCommande: \`${command}\`\nExécution dans: ${delayStr}`).catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
 
     } catch (error) {
         console.error("[SCHEDULE] Error:", error);
-        msg.edit("❌ Erreur lors de la programmation").catch(() => {});
+        msg.edit("**ERREUR**\nErreur lors de la programmation").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     }
 }
@@ -83,7 +83,7 @@ export async function scheduleCommand(msg: Message, args: string[], db: Db | nul
 async function listScheduledTasks(msg: Message, db: Db | null) {
     try {
         if (!db) {
-            msg.edit("❌ Base de données non connectée").catch(() => {});
+            msg.edit("**ERREUR**\nBase de données non connectée").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
             return;
         }
@@ -91,12 +91,12 @@ async function listScheduledTasks(msg: Message, db: Db | null) {
         const tasks = await db.collection("scheduled_tasks").find({}).toArray();
 
         if (tasks.length === 0) {
-            msg.edit("📋 Aucune tâche programmée").catch(() => {});
+            msg.edit("**TACHES PROGRAMMEES**\nAucune tâche programmée").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
             return;
         }
 
-        let taskList = "**📋 Tâches Programmées**\n\n";
+        let taskList = "**TACHES PROGRAMMEES**\n\n";
         tasks.forEach((task: any, index: number) => {
             const timeLeft = task.executeAt - Date.now();
             const timeLeftStr = formatDelay(timeLeft);
@@ -108,7 +108,7 @@ async function listScheduledTasks(msg: Message, db: Db | null) {
 
     } catch (error) {
         console.error("[SCHEDULE] Error listing tasks:", error);
-        msg.edit("❌ Erreur lors de la récupération des tâches").catch(() => {});
+        msg.edit("**ERREUR**\nErreur lors de la récupération des tâches").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     }
 }
@@ -122,12 +122,12 @@ async function clearScheduledTasks(msg: Message, db: Db | null) {
             await db.collection("scheduled_tasks").deleteMany({});
         }
 
-        msg.edit("✅ Toutes les tâches programmées ont été annulées").catch(() => {});
+        msg.edit("**TACHES ANNULEES**\nToutes les tâches programmées ont été annulées").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
 
     } catch (error) {
         console.error("[SCHEDULE] Error clearing tasks:", error);
-        msg.edit("❌ Erreur lors de l'annulation des tâches").catch(() => {});
+        msg.edit("**ERREUR**\nErreur lors de l'annulation des tâches").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     }
 }

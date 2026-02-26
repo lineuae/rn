@@ -37,69 +37,69 @@ export async function healthCommand(msg: Message, currentSessionStart: number, d
         const sysHours = Math.floor((systemUptime % 86400) / 3600);
         const sysUptimeStr = `${sysDays}j ${sysHours}h`;
         
-        const mongoStatus = db ? "✅ Connecté" : "❌ Déconnecté";
+        const mongoStatus = db ? "Connecté" : "Déconnecté";
         
-        let autoVocStatus = "❌ Désactivé";
+        let autoVocStatus = "Désactivé";
         try {
             const autoVocState = await getAutoVocState();
             if (autoVocState && autoVocState.enabled) {
                 const currentVoiceState = streamer.client.user?.voice;
                 const isInChannel = currentVoiceState?.channelId === autoVocState.channelId;
-                autoVocStatus = isInChannel ? "✅ Actif & Connecté" : "⚠️ Actif mais déconnecté";
+                autoVocStatus = isInChannel ? "Actif & Connecté" : "Actif mais déconnecté";
             }
         } catch (e) {
-            autoVocStatus = "⚠️ Erreur";
+            autoVocStatus = "Erreur";
         }
         
-        const voiceStatus = streamer.voiceConnection ? "✅ Connecté" : "❌ Déconnecté";
+        const voiceStatus = streamer.voiceConnection ? "Connecté" : "Déconnecté";
         
         const platform = process.platform;
         const nodeVersion = process.version;
         const cpuModel = os.cpus()[0]?.model || "Unknown";
         const cpuCores = os.cpus().length;
         
-        let healthStatus = "✅ Excellent";
+        let healthStatus = "Excellent";
         if (memPercent > 90 || load1min > cpuCores * 2) {
-            healthStatus = "⚠️ Attention";
+            healthStatus = "Attention";
         }
         if (memPercent > 95 || load1min > cpuCores * 4) {
-            healthStatus = "❌ Critique";
+            healthStatus = "Critique";
         }
         
-        const healthMessage = `**🏥 Check Système Complet**\n\n` +
-            `**📊 État Général: ${healthStatus}**\n\n` +
+        const healthMessage = `**CHECK SYSTEME COMPLET**\n\n` +
+            `**Etat Général:** ${healthStatus}\n\n` +
             
-            `**⏱️ Uptime**\n` +
-            `Bot: ${uptimeStr}\n` +
-            `Système: ${sysUptimeStr}\n\n` +
+            `**UPTIME**\n` +
+            `Bot: \`${uptimeStr}\`\n` +
+            `Système: \`${sysUptimeStr}\`\n\n` +
             
-            `**💾 Mémoire**\n` +
-            `Bot (Heap): ${memUsedMB}MB / ${memTotalMB}MB\n` +
-            `Bot (RSS): ${memRssMB}MB\n` +
-            `Système: ${usedMemGB}GB / ${totalMemGB}GB (${memPercent}%)\n` +
-            `Disponible: ${freeMemGB}GB\n\n` +
+            `**MEMOIRE**\n` +
+            `Bot (Heap): \`${memUsedMB}MB / ${memTotalMB}MB\`\n` +
+            `Bot (RSS): \`${memRssMB}MB\`\n` +
+            `Système: \`${usedMemGB}GB / ${totalMemGB}GB (${memPercent}%)\`\n` +
+            `Disponible: \`${freeMemGB}GB\`\n\n` +
             
-            `**🖥️ CPU**\n` +
-            `Modèle: ${cpuModel.substring(0, 30)}...\n` +
-            `Cœurs: ${cpuCores}\n` +
-            `Charge (1min): ${load1min}\n\n` +
+            `**CPU**\n` +
+            `Modèle: \`${cpuModel.substring(0, 30)}...\`\n` +
+            `Cœurs: \`${cpuCores}\`\n` +
+            `Charge (1min): \`${load1min}\`\n\n` +
             
-            `**🔌 Connexions**\n` +
+            `**CONNEXIONS**\n` +
             `MongoDB: ${mongoStatus}\n` +
             `Vocal: ${voiceStatus}\n` +
             `AutoVoc: ${autoVocStatus}\n\n` +
             
-            `**🖥️ Système**\n` +
-            `Plateforme: ${platform}\n` +
-            `Node.js: ${nodeVersion}\n` +
-            `Compte: ${streamer.client.user?.tag}`;
+            `**SYSTEME**\n` +
+            `Plateforme: \`${platform}\`\n` +
+            `Node.js: \`${nodeVersion}\`\n` +
+            `Compte: \`${streamer.client.user?.tag}\``;
         
         msg.edit(healthMessage).catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 20000);
         
     } catch (error) {
         console.error("[HEALTH] Error:", error);
-        msg.edit("❌ Erreur lors du check système").catch(() => {});
+        msg.edit("**ERREUR**\nErreur lors du check système").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     }
 }

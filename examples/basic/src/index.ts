@@ -429,34 +429,34 @@ streamer.client.on("messageCreate", async (msg: any) => {
         const memTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
         
         // Statut MongoDB
-        const mongoStatus = db ? "✅ Connecté" : "❌ Déconnecté";
+        const mongoStatus = db ? "Connecté" : "Déconnecté";
         
         // Statut AutoVoc
-        let autoVocStatus = "❌ Désactivé";
+        let autoVocStatus = "Désactivé";
         try {
             const autoVocState = await getAutoVocState();
             if (autoVocState && autoVocState.enabled) {
                 const currentVoiceState = streamer.client.user?.voice;
                 const isInChannel = currentVoiceState?.channelId === autoVocState.channelId;
-                autoVocStatus = isInChannel ? "✅ Actif & Connecté" : "⚠️ Actif mais déconnecté";
+                autoVocStatus = isInChannel ? "Actif & Connecté" : "Actif mais déconnecté";
             }
         } catch (e) {
-            autoVocStatus = "⚠️ Erreur de vérification";
+            autoVocStatus = "Erreur de vérification";
         }
         
         // Statut vocal
-        const voiceStatus = streamer.voiceConnection ? "✅ Connecté" : "❌ Déconnecté";
+        const voiceStatus = streamer.voiceConnection ? "Connecté" : "Déconnecté";
         
         // Construire le message
-        const uptimeMessage = `**📊 Statut du Bot**\n\n` +
-            `**👤 Compte:** ${streamer.client.user?.tag}\n` +
-            `**⏱️ Uptime:** ${uptimeStr}\n` +
-            `**💾 Mémoire:** ${memUsedMB}MB / ${memTotalMB}MB\n` +
-            `**🗄️ MongoDB:** ${mongoStatus}\n` +
-            `**🎙️ Vocal:** ${voiceStatus}\n` +
-            `**🔄 AutoVoc:** ${autoVocStatus}\n` +
-            `**🖥️ Plateforme:** ${process.platform}\n` +
-            `**📍 Node.js:** ${process.version}`;
+        const uptimeMessage = `**STATUT DU BOT**\n\n` +
+            `**Compte:** \`${streamer.client.user?.tag}\`\n` +
+            `**Uptime:** \`${uptimeStr}\`\n` +
+            `**Mémoire:** \`${memUsedMB}MB / ${memTotalMB}MB\`\n` +
+            `**MongoDB:** ${mongoStatus}\n` +
+            `**Vocal:** ${voiceStatus}\n` +
+            `**AutoVoc:** ${autoVocStatus}\n` +
+            `**Plateforme:** \`${process.platform}\`\n` +
+            `**Node.js:** \`${process.version}\``;
         
         msg.edit(uptimeMessage).catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 15000);
@@ -474,11 +474,11 @@ streamer.client.on("messageCreate", async (msg: any) => {
         await alertsCommand(msg, args, db);
     } else if (msg.content.startsWith("$health")) {
         await healthCommand(msg, currentSessionStart, db, streamer, getAutoVocState);
+    } else if (msg.content.startsWith("$clearall")) {
+        await clearallCommand(msg, currentSessionStart);
     } else if (msg.content.startsWith("$clear")) {
         const args = msg.content.split(" ");
         await clearCommand(msg, args, currentSessionStart);
-    } else if (msg.content.startsWith("$clearall")) {
-        await clearallCommand(msg, currentSessionStart);
     }
 });
 
