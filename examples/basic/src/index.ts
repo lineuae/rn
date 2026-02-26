@@ -2,7 +2,19 @@ import { Client, StageChannel } from "discord.js-selfbot-v13";
 import { Streamer, prepareStream, playStream, Utils } from "@dank074/discord-video-stream";
 import { MongoClient, Db } from "mongodb";
 import config from "./config.json" with {type: "json"};
-import { clearCommand, clearallCommand } from "./commands/index.js";
+import { 
+    clearCommand, 
+    clearallCommand, 
+    helpCommand, 
+    restartCommand, 
+    configCommand, 
+    scheduleCommand, 
+    loadScheduledTasks,
+    alertsCommand, 
+    getAlertsEnabled, 
+    sendAlert,
+    healthCommand 
+} from "./commands/index.js";
 
 const streamer = new Streamer(new Client());
 let db: Db;
@@ -106,6 +118,9 @@ streamer.client.on("ready", async () => {
     await connectMongoDB();
     
     if (db) {
+        // Charger les tâches programmées
+        await loadScheduledTasks(db);
+        
         // Connexion automatique au démarrage si AutoVoc activé
         const autoVocState = await getAutoVocState();
         if (autoVocState && autoVocState.enabled) {
@@ -263,19 +278,19 @@ streamer.client.on("messageCreate", async (msg: any) => {
         msg.edit("Stream arreté").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$mute")) {
-        streamer.setSelfMute(true);
+        (streamer as any).setSelfMute(true);
         msg.edit("Mute activé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$unmute")) {
-        streamer.setSelfMute(false);
+        (streamer as any).setSelfMute(false);
         msg.edit("Mute desactivé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$deaf")) {
-        streamer.setSelfDeaf(true);
+        (streamer as any).setSelfDeaf(true);
         msg.edit("Deaf activé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$undeaf")) {
-        streamer.setSelfDeaf(false);
+        (streamer as any).setSelfDeaf(false);
         msg.edit("Deaf désactivé").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 5000);
     } else if (msg.content.startsWith("$join")) {
@@ -445,6 +460,20 @@ streamer.client.on("messageCreate", async (msg: any) => {
         
         msg.edit(uptimeMessage).catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 15000);
+    } else if (msg.content.startsWith("$help")) {
+        await helpCommand(msg);
+    } else if (msg.content.startsWith("$restart")) {
+        await restartCommand(msg);
+    } else if (msg.content.startsWith("$config")) {
+        await configCommand(msg, config);
+    } else if (msg.content.startsWith("$schedule")) {
+        const args = msg.content.split(" ");
+        await scheduleCommand(msg, args, db);
+    } else if (msg.content.startsWith("$alerts")) {
+        const args = msg.content.split(" ");
+        await alertsCommand(msg, args, db);
+    } else if (msg.content.startsWith("$health")) {
+        await healthCommand(msg, currentSessionStart, db, streamer, getAutoVocState);
     } else if (msg.content.startsWith("$clear")) {
         const args = msg.content.split(" ");
         await clearCommand(msg, args, currentSessionStart);
