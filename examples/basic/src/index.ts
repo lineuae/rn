@@ -112,8 +112,6 @@ streamer.client.on("ready", async () => {
             console.log("[AUTOVOC] Connecting to voice channel...");
             try {
                 await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
-                streamer.setSelfDeaf(true);
-                startVoiceKeepAlive();
                 console.log("[✓] AutoVoc connected");
             } catch (error) {
                 console.error("[✗] AutoVoc connection failed:", error);
@@ -129,32 +127,6 @@ streamer.client.on("ready", async () => {
 });
 
 
-// Fonction pour maintenir la connexion vocale active
-function startVoiceKeepAlive() {
-    if (keepAliveInterval) clearInterval(keepAliveInterval);
-    
-    keepAliveInterval = setInterval(() => {
-        if (streamer.voiceConnection) {
-            try {
-                streamer.voiceConnection.setSpeaking(true);
-                setTimeout(() => {
-                    if (streamer.voiceConnection) {
-                        streamer.voiceConnection.setSpeaking(false);
-                    }
-                }, 100);
-            } catch (error) {
-                console.error("[✗] Keepalive error:", error);
-            }
-        }
-    }, 60000);
-}
-
-function stopVoiceKeepAlive() {
-    if (keepAliveInterval) {
-        clearInterval(keepAliveInterval);
-        keepAliveInterval = null;
-    }
-}
 
 // Vérification périodique toutes les 10 minutes
 function startAutoReconnect() {
@@ -169,13 +141,15 @@ function startAutoReconnect() {
                 return;
             }
             
-            // Si le bot n'est pas connecté, le reconnecter
-            if (!streamer.voiceConnection) {
-                console.log("[AUTOVOC] Bot not in voice, reconnecting...");
+            // Vérifier si le bot est dans le bon canal vocal
+            const currentVoiceState = streamer.client.user?.voice;
+            const isInCorrectChannel = currentVoiceState?.channelId === autoVocState.channelId;
+            
+            // Si le bot n'est pas dans le bon canal, le reconnecter
+            if (!isInCorrectChannel) {
+                console.log("[AUTOVOC] Bot not in correct voice channel, reconnecting...");
                 try {
                     await streamer.joinVoice(autoVocState.guildId, autoVocState.channelId);
-                    streamer.setSelfDeaf(true);
-                    startVoiceKeepAlive();
                     console.log("[✓] AutoVoc reconnected");
                 } catch (error) {
                     console.error("[✗] AutoVoc reconnection failed:", error);
@@ -278,7 +252,6 @@ streamer.client.on("messageCreate", async (msg: any) => {
             .catch(() => controller.abort());
     } else if (msg.content.startsWith("$disconnect")) {
         controller?.abort();
-        stopVoiceKeepAlive();
         streamer.leaveVoice();
         await clearVoiceState();
         console.log("[✓] Disconnected from voice");
@@ -335,7 +308,6 @@ streamer.client.on("messageCreate", async (msg: any) => {
         
         try {
             await streamer.joinVoice(targetGuildId, channelId);
-            startVoiceKeepAlive();
             await saveVoiceState(targetGuildId, channelId);
             console.log(`[✓] Joined voice: ${targetChannel.guild.name}`);
             msg.edit(`Connecté a <#${channelId}>`).catch(() => {});
@@ -413,8 +385,6 @@ streamer.client.on("messageCreate", async (msg: any) => {
         try {
             await saveAutoVocState(targetGuildId, channelId, true);
             await streamer.joinVoice(targetGuildId, channelId);
-            streamer.setSelfDeaf(true);
-            startVoiceKeepAlive();
             console.log(`[✓] AutoVoc enabled: ${targetChannel.guild.name}`);
             msg.edit(`AutoVoc activé pour <#${channelId}>`).catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
