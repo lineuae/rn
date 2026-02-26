@@ -393,6 +393,58 @@ streamer.client.on("messageCreate", async (msg: any) => {
             msg.edit("Erreur d'activation de l'autovoc").catch(() => {});
             setTimeout(() => msg.delete().catch(() => {}), 5000);
         }
+    } else if (msg.content.startsWith("$uptime")) {
+        // Calculer l'uptime
+        const uptimeMs = Date.now() - currentSessionStart;
+        const uptimeSeconds = Math.floor(uptimeMs / 1000);
+        const days = Math.floor(uptimeSeconds / 86400);
+        const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+        const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+        const seconds = uptimeSeconds % 60;
+        
+        let uptimeStr = "";
+        if (days > 0) uptimeStr += `${days}j `;
+        if (hours > 0) uptimeStr += `${hours}h `;
+        if (minutes > 0) uptimeStr += `${minutes}m `;
+        uptimeStr += `${seconds}s`;
+        
+        // Informations sur la mémoire
+        const memUsage = process.memoryUsage();
+        const memUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+        const memTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+        
+        // Statut MongoDB
+        const mongoStatus = db ? "✅ Connecté" : "❌ Déconnecté";
+        
+        // Statut AutoVoc
+        let autoVocStatus = "❌ Désactivé";
+        try {
+            const autoVocState = await getAutoVocState();
+            if (autoVocState && autoVocState.enabled) {
+                const currentVoiceState = streamer.client.user?.voice;
+                const isInChannel = currentVoiceState?.channelId === autoVocState.channelId;
+                autoVocStatus = isInChannel ? "✅ Actif & Connecté" : "⚠️ Actif mais déconnecté";
+            }
+        } catch (e) {
+            autoVocStatus = "⚠️ Erreur de vérification";
+        }
+        
+        // Statut vocal
+        const voiceStatus = streamer.voiceConnection ? "✅ Connecté" : "❌ Déconnecté";
+        
+        // Construire le message
+        const uptimeMessage = `**📊 Statut du Bot**\n\n` +
+            `**👤 Compte:** ${streamer.client.user?.tag}\n` +
+            `**⏱️ Uptime:** ${uptimeStr}\n` +
+            `**💾 Mémoire:** ${memUsedMB}MB / ${memTotalMB}MB\n` +
+            `**🗄️ MongoDB:** ${mongoStatus}\n` +
+            `**🎙️ Vocal:** ${voiceStatus}\n` +
+            `**🔄 AutoVoc:** ${autoVocStatus}\n` +
+            `**🖥️ Plateforme:** ${process.platform}\n` +
+            `**📍 Node.js:** ${process.version}`;
+        
+        msg.edit(uptimeMessage).catch(() => {});
+        setTimeout(() => msg.delete().catch(() => {}), 15000);
     } else if (msg.content.startsWith("$clear")) {
         const args = msg.content.split(" ");
         await clearCommand(msg, args, currentSessionStart);
