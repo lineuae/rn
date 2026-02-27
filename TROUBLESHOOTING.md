@@ -227,7 +227,7 @@ Bot joins voice but disconnects immediately or can't join
 ### Diagnosis
 ```bash
 pm2 logs discord-bot | grep JOIN
-pm2 logs discord-bot | grep KEEPALIVE
+pm2 logs discord-bot | grep AUTOVOC
 ```
 
 ### Solutions
@@ -240,19 +240,51 @@ pm2 logs discord-bot | grep KEEPALIVE
 **Fix:** Use correct voice channel ID from Discord
 
 #### B. Bot Disconnects After Few Minutes
-**Fix:** Keepalive system should prevent this. Verify logs show:
-```
-[KEEPALIVE] Voice keepalive started
-```
+**Fix:** AutoVoc is responsible for periodic reconnection when enabled.
 
-If not, check code has keepalive implementation.
+If AutoVoc is enabled, the bot performs a check every 10 minutes to ensure it is in the configured voice channel.
 
 #### C. Can't Join Stage Channel
 **Fix:** Bot needs to be unsuppressed in stage channels (already handled in code)
 
 ---
 
-## 7️⃣ Git Pull Issues
+## 6️⃣.1 AutoVoc Not Reconnecting
+
+### Symptom
+AutoVoc is enabled but the bot is not in the configured voice channel.
+
+### Diagnosis
+Check logs:
+```bash
+pm2 logs discord-bot --lines 200 | grep AUTOVOC
+```
+
+### Notes
+- AutoVoc is stored in MongoDB under `_id: "autovoc_state"`.
+- On startup, the bot joins the configured channel.
+- Every 10 minutes, the bot checks `client.user.voice.channelId` matches the saved channel.
+
+---
+
+## 7️⃣ Mass DM (GS) Issues
+
+### Symptom
+`$gs confirm` reports failures, or DMs are not delivered.
+
+### Common Causes
+- Recipient has DMs closed (friends-only / privacy settings)
+- You are blocked by the user
+- Discord rate limits (too many DMs)
+
+### Recommendations
+- Use a higher delay: `$gs delay 5000`
+- Keep batches small
+- Use `$gs send` to review the recipient list and message before confirming
+
+---
+
+## 8️⃣ Git Pull Issues
 
 ### Symptom
 ```
@@ -287,7 +319,7 @@ git commit -m "Resolve conflict"
 
 ---
 
-## 8️⃣ PM2 Issues
+## 9️⃣ PM2 Issues
 
 ### Symptom
 PM2 commands not working or bot not persisting after reboot
@@ -315,7 +347,7 @@ pm2 save
 
 ---
 
-## 9️⃣ Logs Not Showing
+## 🔟 Logs Not Showing
 
 ### Symptom
 Old logs like `"--- line.lc is ready ---"` instead of new detailed logs
@@ -357,7 +389,7 @@ pm2 restart discord-bot
 
 ---
 
-## 🔟 Memory/Performance Issues
+## 1️⃣1️⃣ Memory/Performance Issues
 
 ### Symptom
 Bot crashes with out of memory errors
@@ -417,6 +449,18 @@ ls node_modules | grep mongodb
 git status
 git log --oneline -5
 ```
+
+---
+
+## 1️⃣2️⃣ Schedule / Alerts Issues
+
+### Schedule tasks not running after restart
+- Ensure MongoDB is connected.
+- Scheduled tasks are stored in `scheduled_tasks` and loaded on startup.
+
+### Alerts not received
+- Ensure alerts are enabled: `$alerts status`
+- Alerts are sent as DMs to the connected account.
 
 ---
 
@@ -507,4 +551,4 @@ npm run build 2>&1 > build-output.txt
 
 **📌 Keep this guide updated as new issues are discovered!**
 
-**Last Updated:** February 12, 2026
+**Last Updated:** February 27, 2026

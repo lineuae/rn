@@ -117,12 +117,10 @@ pm2 save
 pm2 logs discord-bot --lines 50
 ```
 
-You should see:
+You should see at least:
 ```
-[STARTUP] Bot script starting...
-[STARTUP] Config loaded: { hasToken: true, hasMongoUri: true, ... }
-[READY] Bot is ready: YourUsername
-[MONGODB] Connected successfully!
+[✓] Bot ready: YourUsername
+[✓] MongoDB connected
 ```
 
 ---
@@ -209,6 +207,13 @@ In Discord, send:
 - `$join <channel_id>` - Should join voice channel
 - `$mute` - Should mute bot
 - `$clear 5` - Should delete 5 messages
+
+Recommended additional checks:
+- `$help` - Command list (auto-deletes after 30 seconds)
+- `$uptime` - Bot status summary
+- `$health` - System health summary
+- `$autovoc <channel_id>` - Enable AutoVoc on a voice channel
+- `$gs` - Verify GS help text appears
 
 ---
 
@@ -312,6 +317,21 @@ tail -f ~/.pm2/logs/discord-bot-out.log
 tail -f ~/.pm2/logs/discord-bot-error.log
 ```
 
+### Restart Options
+
+You can restart the bot in two ways:
+
+1. On the VPS:
+```bash
+pm2 restart discord-bot
+```
+
+2. From Discord (authorized user only):
+```text
+$restart
+```
+This exits the Node.js process and PM2 will restart it.
+
 ### Set Up Log Rotation
 
 ```bash
@@ -412,4 +432,4 @@ pm2 save
 
 **📌 Keep this guide updated with any deployment changes!**
 
-**Last Updated:** February 12, 2026
+**Last Updated:** February 27, 2026

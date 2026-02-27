@@ -29,7 +29,14 @@ Discord-video-stream/
 │   │   └── commands/
 │   │       ├── index.ts        # Command exports
 │   │       ├── clear.ts        # $clear command
-│   │       └── clearall.ts     # $clearall command
+│   │       ├── clearall.ts     # $clearall command
+│   │       ├── help.ts         # $help command
+│   │       ├── restart.ts      # $restart command
+│   │       ├── config.ts       # $config command
+│   │       ├── schedule.ts     # $schedule command (+ persistent tasks)
+│   │       ├── alerts.ts       # $alerts command (+ DM notifications)
+│   │       ├── health.ts       # $health command
+│   │       └── gs.ts           # $gs command (mass DM with confirmation)
 │   ├── dist/                   # Compiled code (USED IN PRODUCTION)
 │   │   ├── index.js
 │   │   ├── config.json         # ⚠️ MUST BE COPIED MANUALLY
@@ -91,6 +98,24 @@ The bot reads from `dist/config.json` in production.
 - `$undeaf` - Undeafen self
 - `$find <user_id or @mention>` - Find user in voice
 
+### 2.1. Info / Ops Commands
+- `$help` - Show all commands (auto-delete after 30 seconds)
+- `$uptime` - Bot status summary (account, uptime, voice, AutoVoc, Mongo)
+- `$health` - Detailed VPS/system health summary
+- `$config` - Show non-sensitive configuration summary
+- `$restart` - Exits the process (PM2 restarts the bot)
+
+### 2.2. Scheduling
+- `$schedule <time> <command>` - Schedule a command (persisted in MongoDB)
+- `$schedule list` - List scheduled tasks
+- `$schedule clear` - Cancel all scheduled tasks
+
+### 2.3. Alerts
+- `$alerts on|off|status` - Enable/disable alert DMs to the connected account
+
+### 2.4. Mass DM (GS)
+- `$gs` - Interactive mass DM session with confirmation step and delay control
+
 ### 3. Message Management Commands
 - `$clear <number>` - Delete X user messages in channel (1-100)
 - `$clearall` - Delete ALL user messages in channel
@@ -104,7 +129,8 @@ The bot reads from `dist/config.json` in production.
 ### 4. MongoDB Persistence System
 
 **Collections:**
-- `bot_state` - Stores bot voice state
+- `bot_state` - Stores bot state/config documents
+- `scheduled_tasks` - Stores scheduled commands for `$schedule`
 
 **Document structure:**
 ```javascript
@@ -116,28 +142,28 @@ The bot reads from `dist/config.json` in production.
 }
 ```
 
-**Features:**
-- Auto-save voice state on `$join`
-- Auto-restore on bot restart
-- Smart disconnect/reconnect if already connected on restart
-- State cleanup on `$disconnect`
-
-### 5. Voice Keepalive System
-
-**Problem:** Discord disconnects inactive voice connections.
-
-**Solution:** Send `speaking` signal every 60 seconds.
-
-```typescript
-setInterval(() => {
-    if (streamer.voiceConnection) {
-        streamer.voiceConnection.setSpeaking(true);
-        setTimeout(() => {
-            streamer.voiceConnection.setSpeaking(false);
-        }, 100);
-    }
-}, 60000);
+**Additional documents in `bot_state`:**
+```javascript
+{ _id: "autovoc_state", guildId, channelId, enabled, timestamp }
+{ _id: "alerts_config", enabled, timestamp }
 ```
+
+**Features:**
+- Save voice state on `$join`
+- Clear voice state on `$disconnect`
+- AutoVoc state persistence (enabled + target channel)
+- Scheduled tasks persistence (so they survive restarts)
+
+### 5. AutoVoc (Robust)
+
+**Goal:** If AutoVoc is enabled, ensure the selfbot stays connected to the configured voice channel.
+
+**Behavior:**
+- On startup, if AutoVoc is enabled in MongoDB, the bot joins the configured channel.
+- Every 10 minutes, a periodic check verifies the bot is in the correct channel.
+- The check uses `streamer.client.user?.voice?.channelId` compared to the configured `channelId`.
+
+**Important:** The bot should join without forcing self-deaf or self-mute.
 
 ### 6. Detailed Startup Logs
 
@@ -167,7 +193,7 @@ import { Client, StageChannel } from "discord.js-selfbot-v13";
 import { Streamer, prepareStream, playStream, Utils } from "@dank074/discord-video-stream";
 import { MongoClient, Db } from "mongodb";
 import config from "./config.json" with {type: "json"};
-import { clearCommand, clearallCommand } from "./commands/index.js";
+import { /* ...commands... */ } from "./commands/index.js";
 ```
 
 ### ⚠️ Critical Points
@@ -176,6 +202,7 @@ import { clearCommand, clearallCommand } from "./commands/index.js";
 2. **Command Imports:** Require `.js` extension (ES Module requirement)
 3. **MongoDB Casts:** All use `as any` to avoid TypeScript errors
 4. **Config Access:** Use `(config as any).mongo_uri` for type safety
+5. **Streamer typings:** In the app, `setSelfMute` and `setSelfDeaf` are called through `(streamer as any)` to satisfy TypeScript.
 
 ### Session Management
 
@@ -261,9 +288,11 @@ await (message as any).delete();
 
 ### Issue 5: Bot Auto-Disconnects from Voice
 
-**Problem:** Discord disconnects inactive voice connections
+**Problem:** Bot is not in the configured AutoVoc channel.
 
-**Solution:** Keepalive system with `speaking` signal every 60 seconds (already implemented)
+**Solution:** AutoVoc periodic check every 10 minutes verifies the correct channel and reconnects when needed.
+
+**Note:** A voice keepalive/speaking simulation was removed.
 
 ---
 
@@ -398,17 +427,19 @@ grep "STARTUP" dist/index.js | head -n 3
 - ✅ MongoDB connection successful
 - ✅ All voice commands working
 - ✅ `$clear` and `$clearall` work in DM and server
-- ✅ Voice keepalive system active
 - ✅ Voice state persistence with MongoDB
-- ✅ Auto disconnect/reconnect on restart
+- ✅ AutoVoc: connect on startup + 10 minute correct-channel check
 - ✅ Multi-server search for `$join` and `$find`
 - ✅ VPS deployment with PM2
+- ✅ New command system under `examples/basic/src/commands`
+- ✅ Mass DM command `$gs` with confirmation + delay + failed IDs in report
 
 ### ⚠️ Points of Attention
 
 1. **Config.json must be copied manually** after each build
-2. **Methods `setSelfMute` and `setSelfDeaf`** must exist in `Streamer` class (modified in `src/client/Streamer.ts`)
-3. **`isCurrentSession` system** implemented but not used everywhere (could be added to clear commands if needed)
+2. **Selfbot risk:** Automations can lead to account sanctions (use at your own risk)
+3. **Scheduling:** `$schedule` persists tasks in MongoDB (`scheduled_tasks`), and they are loaded on startup.
+4. **Rate limits:** `$gs` applies delays but mass DM can still be rate-limited.
 
 ### 🔮 Possible Improvements
 
@@ -562,5 +593,5 @@ pm2 logs discord-bot
 
 **📌 This document contains EVERYTHING an AI assistant needs to take over this project. Keep it updated!**
 
-**Last Updated:** February 12, 2026  
+**Last Updated:** February 27, 2026  
 **Status:** Fully Functional ✅

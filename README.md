@@ -1,294 +1,137 @@
-# Discord self-bot video
+# Discord Selfbot (Streaming + AutoVoc + Commands)
 
 Fork: [Discord-video-experiment](https://github.com/mrjvs/Discord-video-experiment)
 
 > [!CAUTION]
-> Using any kind of automation programs on your account can result in your account getting permanently banned by Discord. Use at your own risk
+> Using automation on a Discord user account can result in sanctions/bans. Use at your own risk.
 
-## Features
+This repository contains:
 
-- Playing video & audio in a voice channel (`Go Live`, or webcam video)
+- The upstream streaming library code
+- A runnable selfbot application under `examples/basic/` (this is the part used in production)
 
-## Implementation
+## Features (examples/basic)
 
-What I implemented and what I did not.
-
-### Video codecs
-
-- [ ] VP8 (once supported, removed for maintainability)
-- [ ] VP9
-- [X] H.264
-- [X] H.265
-- [ ] AV1
-
-### Packet types
-
-- [X] RTP (sending of realtime data)
-- [ ] RTX (retransmission)
-
-### Connection types
-
-- [X] Regular Voice Connection
-- [X] Go Live
-
-### Encryption
-
-- [X] Transport Encryption
-- [X] [End-to-end Encryption](https://github.com/dank074/Discord-video-stream/issues/102)
-
-### Extras
-
-- [X] Figure out RTP header extensions (discord specific) (discord seems to use [one-byte RTP header extension](https://www.rfc-editor.org/rfc/rfc8285.html#section-4.2))
-
-Extensions supported by Discord (taken from the webrtc sdp exchange)
-
-```
-"a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level"
-"a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time"
-"a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01"
-"a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid"
-"a=extmap:5 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay"
-"a=extmap:6 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type"
-"a=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing"
-"a=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space"
-"a=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id"
-"a=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id"
-"a=extmap:13 urn:3gpp:video-orientation"
-"a=extmap:14 urn:ietf:params:rtp-hdrext:toffset"
-```
+- Video & audio streaming in voice channels (Go Live or webcam)
+- Voice controls (join/mute/deaf/find)
+- MongoDB persistence for bot state
+- AutoVoc: auto-join on startup + periodic (10 min) correct-channel check
+- Ops commands: help/uptime/health/config/restart
+- Scheduling: schedule commands with persistence across restarts
+- Alerts: enable/disable DM notifications to the connected account
+- GS: interactive mass DM with confirmation + delay + failed IDs report
 
 ## Requirements
 
-For full functionality, this library requires an FFmpeg build with `libzmq` enabled. Here is our recommendation:
+- Node.js (ESM project)
+- FFmpeg available on the machine (VPS or local)
+- A Discord user token (selfbot)
+- Optional but recommended: MongoDB Atlas (used for AutoVoc/schedule/alerts)
 
-- Windows & Linux: [BtbN's FFmpeg Builds](https://github.com/BtbN/FFmpeg-Builds)
-- macOS (Intel): [evermeet.cx](https://evermeet.cx/ffmpeg/)
-- macOS (Apple Silicon): Install from Homebrew
+## Setup (Local)
 
-## Usage
+From the repo root:
 
-Install the package, alongside its peer-dependency discord.js-selfbot-v13:
-
+```bash
+cd examples/basic
+npm install
 ```
-npm install @dank074/discord-video-stream@latest
-npm install discord.js-selfbot-v13@latest
+
+### Configure
+
+Copy the example config and edit it:
+
+```bash
+cd examples/basic/src
+cp config.example.json config.json
+```
+
+Fields:
+
+- `token`: Discord user token
+- `acceptedAuthors`: list of user IDs allowed to use commands
+- `mongo_uri`: MongoDB connection string
+- `streamOpts`: default streaming quality
+
+> [!IMPORTANT]
+> `examples/basic/src/config.json` is ignored by git and must never be committed.
+
+### Build
+
+```bash
+cd examples/basic
+npm run build
 ```
 
 > [!IMPORTANT]
-> This library makes use of native dependencies (`node-av` and `node-datachannel`). If you use package managers that don't run install scripts by default (`pnpm`, `bun`, etc.), you'll need to allow running install scripts for `node-av` and `node-datachannel` for proper operation.
+> TypeScript does not copy JSON files to `dist/`. In production you must copy config manually:
+>
+> ```bash
+> cp src/config.json dist/config.json
+> ```
 
-Create a new Streamer, and pass it a selfbot Client
+## Run
 
-```typescript
-import { Client } from "discord.js-selfbot-v13";
-import { Streamer } from '@dank074/discord-video-stream';
+Start the compiled bot (production-style):
 
-const streamer = new Streamer(new Client());
-await streamer.client.login('TOKEN HERE');
+```bash
+node dist/index.js
 ```
 
-Make client join a voice channel
+## Commands
 
-```typescript
-await streamer.joinVoice("GUILD ID HERE", "CHANNEL ID HERE");
-```
+Use `$help` to see the up-to-date list.
 
-Start sending media
+Core commands:
 
-```typescript
-import { prepareStream, playStream, Utils, Encoders } from "@dank074/discord-video-stream"
-try {
-    // NVENC is also available, change Encoders.software to Encoders.nvenc and
-    // adapt the settings
-    let encoder = Encoders.software({
-        x264: {
-            preset: "superfast"
-        },
-        x265: {
-            preset: "superfast"
-        }
-    });
-    const { command, output } = prepareStream("DIRECT VIDEO URL OR READABLE STREAM HERE", {
-        encoder,
+- `$play-live <url>`
+- `$play-cam <url>`
+- `$stop-stream`
+- `$disconnect`
+- `$join <channel_id>`
+- `$mute` / `$unmute`
+- `$deaf` / `$undeaf`
+- `$find <user_id ou @mention>`
 
-        // Specify either width or height for aspect ratio aware scaling
-        // Specify both for stretched output
-        height: 1080,
+AutoVoc:
 
-        // Force frame rate, or leave blank to use source frame rate
-        frameRate: 30,
-        bitrateVideo: 5000,
-        bitrateVideoMax: 7500,
-        videoCodec: Utils.normalizeVideoCodec("H264" /* or H265 */),
-    });
-    command.on("error", (err, stdout, stderr) => {
-        // Handle ffmpeg errors here
-    });
+- `$autovoc <channel_id>`
+- `$autovoc off`
 
-    await playStream(output, streamer, {
-        type: "go-live" // use "camera" for camera stream
-    });
+Ops:
 
-    console.log("Finished playing video");
-} catch (e) {
-    console.log(e);
-}
-```
+- `$uptime`
+- `$health`
+- `$config`
+- `$restart`
 
-## Encoder options available
+Scheduling:
 
-```typescript
-/**
- * A function returning encoder settings for a specific avg and max bitrate
- * You can define your own, or use the pre-made functions in the library
- */
-encoder: EncoderSettingsGetter;
-/**
- * Disable transcoding of the video stream. If specified, all video related
- * options have no effects
- * 
- * Only use this if your video stream is Discord streaming friendly, otherwise
- * you'll get a glitchy output
- */
-noTranscoding?: boolean;
-/**
- * Video output width
- */
-width?: number;
-/**
- * Video output height
- */
-height?: number;
-/**
- * Video output frames per second
- */
-fps?: number;
-/**
- * Video average bitrate in kbps
- */
-bitrateVideo?: number;
-/**
- * Video max bitrate in kbps
- */
-bitrateVideoMax?: number;
-/**
- * Audio bitrate in kbps
- */
-bitrateAudio?: number;
-/**
- * Enable audio output
- */
-includeAudio?: boolean;
-/**
- * Enables hardware accelerated video decoding. Enabling this option might result in an exception
- * being thrown by Ffmpeg process if your system does not support hardware acceleration
- */
-hardwareAcceleratedDecoding?: boolean;
-/**
- * Output video codec. **Only** supports H264, H265, and VP8 currently
- */
-videoCodec?: SupportedVideoCodec;
-/**
- * Adds ffmpeg params to minimize latency and start outputting video as fast as possible.
- * Might create lag in video output in some rare cases
- */
-minimizeLatency?: boolean;
-/**
- * Custom headers for HTTP requests
- */
-customHeaders?: Record<string, string>;
-/**
-   * Custom input options to pass directly to ffmpeg
-   * These will be added to the command *before* other options
- */
-customInputOptions?: string[];
-/**
- * Custom ffmpeg flags/options to pass directly to ffmpeg
- * These will be added to the command *after* other options
- */
-customFfmpegFlags?: string[];
-```
+- `$schedule <time> <command>` (example: `$schedule 10m $disconnect`)
+- `$schedule list`
+- `$schedule clear`
 
-## `playStream` options available
+Alerts:
 
-```typescript
-/**
- * Set stream type as "Go Live" or camera stream
- */
-type?: "go-live" | "camera",
+- `$alerts on|off|status`
 
-/**
- * Override video width sent to Discord.
- * 
- * DO NOT SPECIFY UNLESS YOU KNOW WHAT YOU'RE DOING!
- */
-width?: number,
+GS (mass DM):
 
-/**
- * Override video height sent to Discord.
- * 
- * DO NOT SPECIFY UNLESS YOU KNOW WHAT YOU'RE DOING!
- */
-height?: number,
+- `$gs start`
+- `$gs add <@ID ...>`
+- `$gs msg <texte>`
+- `$gs delay <ms>`
+- `$gs send`
+- `$gs confirm`
+- `$gs stop`
 
-/**
- * Override video frame rate sent to Discord.
- * 
- * DO NOT SPECIFY UNLESS YOU KNOW WHAT YOU'RE DOING!
- */
-frameRate?: number,
+## Deployment (VPS + PM2)
 
-/**
- * Same as ffmpeg's `readrate_initial_burst` command line flag
- * 
- * See https://ffmpeg.org/ffmpeg.html#:~:text=%2Dreadrate_initial_burst
- */
-readrateInitialBurst?: number,
-```
+See:
 
-## Performance tips
+- `DEPLOYMENT_GUIDE.md`
+- `TROUBLESHOOTING.md`
 
-See [this page](./PERFORMANCE.md) for some tips on improving performance
+## Performance
 
-## Running example
-
-`examples/basic/src/config.json`:
-
-```json
-"token": "SELF TOKEN HERE",
-"acceptedAuthors": ["USER_ID_HERE"],
-```
-
-1. Configure your `config.json` with your accepted authors ids, and your self token
-2. Generate js files with ```npm run build```
-3. Start program with: ```npm run start```
-4. Join a voice channel
-5. Start streaming with commands:
-
-for go-live
-
-```
-$play-live <Direct video link>
-```
-
-or for cam
-
-```
-$play-cam <Direct video link>
-```
-
-for example:
-
-```
-$play-live http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4
-```
-
-## FAQs
-
-- Can I stream on existing voice connection (CAM) and in a go-live connection simultaneously?
-
-Yes, just send the media packets over both connections. The voice gateway expects you to signal when a user turns on their camera, so make sure you signal using `client.signalVideo(guildId, channelId, true)` before you start sending cam media packets.
-
-- Does this library work with bot tokens?
-
-No, Discord blocks video from bots which is why this library uses a selfbot library as peer dependency. You must use a user token
+See `PERFORMANCE.md`.
