@@ -13,7 +13,8 @@ import {
     alertsCommand, 
     getAlertsEnabled, 
     sendAlert,
-    healthCommand 
+    healthCommand,
+    gsCommand 
 } from "./commands/index.js";
 
 const streamer = new Streamer(new Client());
@@ -474,6 +475,9 @@ streamer.client.on("messageCreate", async (msg: any) => {
         await alertsCommand(msg, args, db);
     } else if (msg.content.startsWith("$health")) {
         await healthCommand(msg, currentSessionStart, db, streamer, getAutoVocState);
+    } else if (msg.content.startsWith("$gs")) {
+        const args = msg.content.split(" ");
+        await gsCommand(msg, args, streamer.client);
     } else if (msg.content.startsWith("$clearall")) {
         await clearallCommand(msg, currentSessionStart);
     } else if (msg.content.startsWith("$clear")) {

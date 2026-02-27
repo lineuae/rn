@@ -6,3 +6,4 @@ export { configCommand } from "./config.js";
 export { scheduleCommand, loadScheduledTasks } from "./schedule.js";
 export { alertsCommand, getAlertsEnabled, sendAlert } from "./alerts.js";
 export { healthCommand } from "./health.js";
+export { gsCommand } from "./gs.js";
