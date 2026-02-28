@@ -17,6 +17,30 @@ import {
     gsCommand 
 } from "./commands/index.js";
 
+function validateConfig(): void {
+    const hasToken = typeof (config as any).token === "string" && (config as any).token.length > 0;
+    const acceptedAuthors = (config as any).acceptedAuthors;
+    const hasAcceptedAuthors = Array.isArray(acceptedAuthors) && acceptedAuthors.length > 0;
+    const hasMongoUri = typeof (config as any).mongo_uri === "string" && (config as any).mongo_uri.length > 0;
+
+    console.log("[STARTUP] Validating configuration...");
+    console.log("[STARTUP] hasToken:", hasToken);
+    console.log("[STARTUP] acceptedAuthorsCount:", Array.isArray(acceptedAuthors) ? acceptedAuthors.length : 0);
+    console.log("[STARTUP] hasMongoUri:", hasMongoUri);
+
+    if (!hasToken) {
+        console.error("[CONFIG] Missing or empty token in config.json");
+        process.exit(1);
+    }
+
+    if (!hasAcceptedAuthors) {
+        console.error("[CONFIG] acceptedAuthors must be a non-empty array in config.json");
+        process.exit(1);
+    }
+}
+
+validateConfig();
+
 const streamer = new Streamer(new Client());
 let db: Db;
 let controller: AbortController;
