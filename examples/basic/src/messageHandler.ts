@@ -334,7 +334,7 @@ export function registerMessageHandler(
             await healthCommand(msg as any, currentSessionStart, db as any, streamer as any, () => getAutoVocState());
         } else if (msg.content.startsWith("$gs")) {
             const args = msg.content.split(" ");
-            await gsCommand(msg as any, args, streamer.client as any);
+            await gsCommand(msg as any, args, streamer.client as any, db as any);
         } else if (msg.content.startsWith("$clearall")) {
             const currentSessionStart = getCurrentSessionStart();
             await clearallCommand(msg as any, currentSessionStart);

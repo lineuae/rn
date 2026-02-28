@@ -1,4 +1,8 @@
 import type { Message } from "discord.js-selfbot-v13";
+import type { Db } from "mongodb";
+
+const MAX_GS_RECIPIENTS = 50;
+const GS_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
 
 type GSState = {
     recipients: string[];
@@ -10,7 +14,31 @@ type GSState = {
 // Etat en mémoire, 1 session GS par auteur
 const gsStates: Map<string, GSState> = new Map();
 
-export async function gsCommand(msg: Message, args: string[], client: any) {
+async function getLastGsRun(db: Db | undefined): Promise<number | null> {
+    if (!db) return null;
+    try {
+        const doc = await db.collection("bot_state").findOne<{ lastRunAt: number }>({ _id: "gs_last_run" } as any);
+        return doc?.lastRunAt ?? null;
+    } catch (error) {
+        console.error("[GS] Failed to read last GS run from Mongo:", error);
+        return null;
+    }
+}
+
+async function setLastGsRun(db: Db | undefined, timestamp: number): Promise<void> {
+    if (!db) return;
+    try {
+        await db.collection("bot_state").updateOne(
+            { _id: "gs_last_run" } as any,
+            { $set: { lastRunAt: timestamp } },
+            { upsert: true }
+        );
+    } catch (error) {
+        console.error("[GS] Failed to persist last GS run in Mongo:", error);
+    }
+}
+
+export async function gsCommand(msg: Message, args: string[], client: any, db?: Db) {
     const authorId = msg.author.id;
 
     if (args.length < 2) {
@@ -35,6 +63,24 @@ export async function gsCommand(msg: Message, args: string[], client: any) {
     const sub = args[1].toLowerCase();
 
     if (sub === "start") {
+        if (db) {
+            const lastRun = await getLastGsRun(db);
+            if (lastRun) {
+                const elapsed = Date.now() - lastRun;
+                if (elapsed < GS_COOLDOWN_MS) {
+                    const remainingMs = GS_COOLDOWN_MS - elapsed;
+                    const remainingSec = Math.floor(remainingMs / 1000);
+                    const m = Math.floor(remainingSec / 60);
+                    const s = remainingSec % 60;
+                    msg.edit(
+                        `**GS**\nCooldown global actif. Réessaie dans ${m}m${s.toString().padStart(2, "0")}s.`
+                    ).catch(() => {});
+                    setTimeout(() => msg.delete().catch(() => {}), 8000);
+                    return;
+                }
+            }
+        }
+
         gsStates.set(authorId, { recipients: [], message: "", awaitingConfirm: false, delayMs: 3500 });
         msg.edit(
             "**GS**\nSession démarrée.\n\n" +
@@ -64,6 +110,10 @@ export async function gsCommand(msg: Message, args: string[], client: any) {
         state.recipients = [];
         state.message = "";
         state.awaitingConfirm = false;
+
+        if (db) {
+            await setLastGsRun(db, Date.now());
+        }
         msg.edit("**GS**\nListe et message réinitialisés.").catch(() => {});
         setTimeout(() => msg.delete().catch(() => {}), 8000);
         return;
@@ -117,11 +167,27 @@ export async function gsCommand(msg: Message, args: string[], client: any) {
         }
 
         if (sub === "add") {
+            let added = 0;
             for (const id of ids) {
-                if (!state.recipients.includes(id)) state.recipients.push(id);
+                if (state.recipients.length >= MAX_GS_RECIPIENTS) break;
+                if (!state.recipients.includes(id)) {
+                    state.recipients.push(id);
+                    added++;
+                }
             }
             state.awaitingConfirm = false;
-            msg.edit(`**GS**\nAjouté. Total: ${state.recipients.length}`).catch(() => {});
+
+            if (added === 0 && state.recipients.length >= MAX_GS_RECIPIENTS) {
+                msg.edit(
+                    `**GS**\nLimite de ${MAX_GS_RECIPIENTS} destinataires atteinte. Aucun ID supplémentaire ajouté.`
+                ).catch(() => {});
+            } else if (state.recipients.length >= MAX_GS_RECIPIENTS) {
+                msg.edit(
+                    `**GS**\nAjouté. Total: ${state.recipients.length} (limite atteinte: ${MAX_GS_RECIPIENTS}).`
+                ).catch(() => {});
+            } else {
+                msg.edit(`**GS**\nAjouté. Total: ${state.recipients.length}`).catch(() => {});
+            }
             setTimeout(() => msg.delete().catch(() => {}), 8000);
             return;
         }
@@ -171,6 +237,9 @@ export async function gsCommand(msg: Message, args: string[], client: any) {
             "**GS**\nConfirmation requise.\n\n" +
             `Destinataires: ${state.recipients.length}\n` +
             `Délai: ${delay}ms (+ jitter aléatoire)\n\n` +
+            `Limite par campagne: ${MAX_GS_RECIPIENTS} destinataires\n` +
+            `Cooldown global: ${Math.floor(GS_COOLDOWN_MS / 60000)} minutes\n` +
+            "⚠️ Mass DM: risque de rate-limit/ban si vous envoyez trop de DMs ou trop vite.\n\n" +
             `Liste (aperçu): ${recipientsPreview}\n\n` +
             `Message (aperçu):\n\`\`\`\n${messagePreview}\n\`\`\`\n\n` +
             "Pour envoyer: `$gs confirm`\n" +
