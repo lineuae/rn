@@ -96,11 +96,13 @@ Save with `Ctrl+O`, `Enter`, `Ctrl+X`
 ```bash
 cd ~/projects/rn/examples/basic
 npm run build
+# postbuild will automatically copy src/config.json to dist/config.json
 ```
 
-### 5. Copy Config to dist/
+### 5. (Optional) Manually Copy Config to dist/
 
 ```bash
+# Only needed if dist/config.json is missing for some reason
 cp src/config.json dist/config.json
 ```
 
@@ -141,10 +143,10 @@ npm install
 
 # 4. Clean build
 rm -rf dist/
-npm run build
+npm run build   # postbuild copies config.json automatically
 
-# 5. Copy config
-cp src/config.json dist/config.json
+# 5. (Optional) Copy config if needed
+[ -f dist/config.json ] || cp src/config.json dist/config.json
 
 # 6. Restart bot
 pm2 restart discord-bot

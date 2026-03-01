@@ -24,22 +24,26 @@ Discord-video-stream/
 │       └── Streamer.ts          # Main streaming class (MODIFIED: setSelfMute, setSelfDeaf)
 ├── examples/basic/              # Selfbot application (MAIN CODE)
 │   ├── src/
-│   │   ├── index.ts            # Main entry point
-│   │   ├── config.json         # Configuration (token, mongo_uri, etc.)
+│   │   ├── index.ts             # Main entry point (startup, wiring)
+│   │   ├── types.ts             # Shared TypeScript types (AppConfig, AutoVocState, etc.)
+│   │   ├── mongo.ts             # MongoDB connection and state helpers
+│   │   ├── autovoc.ts           # AutoVoc periodic check & reconnect
+│   │   ├── messageHandler.ts    # messageCreate handler routing all commands
+│   │   ├── config.json          # Configuration (token, mongo_uri, etc.)
 │   │   └── commands/
-│   │       ├── index.ts        # Command exports
-│   │       ├── clear.ts        # $clear command
-│   │       ├── clearall.ts     # $clearall command
-│   │       ├── help.ts         # $help command
-│   │       ├── restart.ts      # $restart command
-│   │       ├── config.ts       # $config command
-│   │       ├── schedule.ts     # $schedule command (+ persistent tasks)
-│   │       ├── alerts.ts       # $alerts command (+ DM notifications)
-│   │       ├── health.ts       # $health command
-│   │       └── gs.ts           # $gs command (mass DM with confirmation)
-│   ├── dist/                   # Compiled code (USED IN PRODUCTION)
+│   │       ├── index.ts         # Command exports
+│   │       ├── clear.ts         # $clear command
+│   │       ├── clearall.ts      # $clearall command
+│   │       ├── help.ts          # $help command
+│   │       ├── restart.ts       # $restart command
+│   │       ├── config.ts        # $config command
+│   │       ├── schedule.ts      # $schedule command (+ persistent tasks)
+│   │       ├── alerts.ts        # $alerts command (+ DM notifications)
+│   │       ├── health.ts        # $health command
+│   │       └── gs.ts            # $gs command (mass DM with safety net)
+│   ├── dist/                    # Compiled code (USED IN PRODUCTION)
 │   │   ├── index.js
-│   │   ├── config.json         # ⚠️ MUST BE COPIED MANUALLY
+│   │   ├── config.json          # Copied automatically by postbuild script
 │   │   └── commands/
 │   ├── package.json            # Dependencies (mongodb added)
 │   └── tsconfig.json           # TypeScript configuration
@@ -71,14 +75,18 @@ Discord-video-stream/
 
 ### ⚠️ CRITICAL: Config File Management
 
-**TypeScript does NOT copy `.json` files during compilation!**
+Historically, TypeScript did **not** copy `.json` files during compilation and `config.json` had to be copied manually.
 
-After every build, you MUST:
-```bash
-cp src/config.json dist/config.json
+Now, the `examples/basic/package.json` includes a **postbuild script** that automatically copies `src/config.json` to `dist/config.json` after every `npm run build`:
+```json
+"scripts": {
+  "build": "tsc",
+  "postbuild": "node -e \"const fs=require('fs');fs.copyFileSync('src/config.json','dist/config.json');\"",
+  "start": "node ./dist/index.js"
+}
 ```
 
-The bot reads from `dist/config.json` in production.
+The bot reads from `dist/config.json` in production. As long as `src/config.json` exists **before** running `npm run build`, the config will be available in `dist/`.
 
 ---
 
@@ -114,7 +122,7 @@ The bot reads from `dist/config.json` in production.
 - `$alerts on|off|status` - Enable/disable alert DMs to the connected account
 
 ### 2.4. Mass DM (GS)
-- `$gs` - Interactive mass DM session with confirmation step and delay control
+- `$gs` - Interactive mass DM session with confirmation step, delay control, **hard limit (50 recipients)** and **30-minute global cooldown** (stored in MongoDB under `_id: "gs_last_run"`).
 
 ### 3. Message Management Commands
 - `$clear <number>` - Delete X user messages in channel (1-100)
@@ -186,14 +194,18 @@ All processes are logged for easy debugging:
 
 ## 🔧 Technical Architecture
 
-### Key Imports
+### Key Imports (examples/basic/src/index.ts)
 
 ```typescript
-import { Client, StageChannel } from "discord.js-selfbot-v13";
-import { Streamer, prepareStream, playStream, Utils } from "@dank074/discord-video-stream";
-import { MongoClient, Db } from "mongodb";
-import config from "./config.json" with {type: "json"};
-import { /* ...commands... */ } from "./commands/index.js";
+import { Client } from "discord.js-selfbot-v13";
+import { Streamer } from "@dank074/discord-video-stream";
+import type { Db } from "mongodb";
+import rawConfig from "./config.json" with { type: "json" };
+import type { AppConfig } from "./types.js";
+import { loadScheduledTasks } from "./commands/index.js";
+import { connectMongoDB, getAutoVocState as getAutoVocStateFromDb } from "./mongo.js";
+import { startAutoReconnect } from "./autovoc.js";
+import { registerMessageHandler } from "./messageHandler.js";
 ```
 
 ### ⚠️ Critical Points
@@ -368,20 +380,24 @@ grep "STARTUP" dist/index.js | head -n 3
 
 ```json
 {
-  "name": "@dank074/discord-video-stream-example",
+  "name": "@line/discord-bot",
   "version": "1.0.0",
   "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "postbuild": "node -e \"const fs=require('fs');fs.copyFileSync('src/config.json','dist/config.json');\"",
+    "start": "node ./dist/index.js",
+    "yeet": "npm run build && npm run start"
   },
   "dependencies": {
-    "@dank074/discord-video-stream": "file:../..",
-    "discord.js-selfbot-v13": "^3.3.0",
+    "@dank074/discord-video-stream": "^5.0.0",
+    "discord.js-selfbot-v13": "^3.5.1",
     "mongodb": "^6.3.0"
   },
   "devDependencies": {
-    "@types/node": "^22.4.0",
-    "typescript": "^5.5.4"
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
   }
 }
 ```
@@ -394,12 +410,12 @@ grep "STARTUP" dist/index.js | head -n 3
 
 ### 1. Two Config Files Required
 - `src/config.json` - For development
-- `dist/config.json` - For production (MUST be copied manually)
+- `dist/config.json` - For production (Copied automatically by postbuild script)
 
 ### 2. TypeScript Compilation
 - Always delete `dist/` before rebuilding: `rm -rf dist/`
 - Verify new logs are present: `grep "STARTUP" dist/index.js`
-- Copy config after build: `cp src/config.json dist/config.json`
+- Config is copied automatically after build
 
 ### 3. MongoDB
 - URI stored in `config.json`: `mongo_uri`
@@ -432,22 +448,22 @@ grep "STARTUP" dist/index.js | head -n 3
 - ✅ Multi-server search for `$join` and `$find`
 - ✅ VPS deployment with PM2
 - ✅ New command system under `examples/basic/src/commands`
-- ✅ Mass DM command `$gs` with confirmation + delay + failed IDs in report
+- ✅ Codebase refactored into modular files (`types.ts`, `mongo.ts`, `autovoc.ts`, `messageHandler.ts`)
+- ✅ Mass DM command `$gs` with confirmation, delay, failed IDs in report, 50-recipient limit and 30-minute cooldown
 
 ### ⚠️ Points of Attention
 
-1. **Config.json must be copied manually** after each build
+1. **Config.json is copied automatically** after each build via `postbuild` (ensure `src/config.json` exists)
 2. **Selfbot risk:** Automations can lead to account sanctions (use at your own risk)
 3. **Scheduling:** `$schedule` persists tasks in MongoDB (`scheduled_tasks`), and they are loaded on startup.
 4. **Rate limits:** `$gs` applies delays but mass DM can still be rate-limited.
 
 ### 🔮 Possible Improvements
 
-1. Automate config.json copy in build script
-2. Add permission system for commands
-3. Implement persistent logging system in MongoDB
-4. Add playlist management commands for streaming
-5. Create web dashboard for bot monitoring
+1. Add permission system for commands (roles/tiers per command)
+2. Implement persistent logging system in MongoDB (commands, errors, AutoVoc events)
+3. Add playlist/queue management commands for streaming
+4. Optional web dashboard for bot monitoring and manual control
 
 ---
 

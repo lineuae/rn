@@ -52,6 +52,9 @@ Error: Cannot find module './config.json'
 **Fix:**
 ```bash
 cd ~/projects/rn/examples/basic
+# Rebuild to let postbuild copy config.json automatically
+npm run build
+# If dist/config.json is still missing, copy manually as fallback
 cp src/config.json dist/config.json
 pm2 restart discord-bot
 ```
@@ -279,8 +282,9 @@ pm2 logs discord-bot --lines 200 | grep AUTOVOC
 
 ### Recommendations
 - Use a higher delay: `$gs delay 5000`
-- Keep batches small
-- Use `$gs send` to review the recipient list and message before confirming
+- Keep batches small (the bot enforces a hard limit of 50 recipients per campagne)
+- Respect the global cooldown (30 minutes between two campagnes, stored in MongoDB)
+- Use `$gs send` to review the recipient list and message (the confirmation message now shows limit + cooldown + warning)
 
 ---
 

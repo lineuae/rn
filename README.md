@@ -19,7 +19,7 @@ This repository contains:
 - Ops commands: help/uptime/health/config/restart
 - Scheduling: schedule commands with persistence across restarts
 - Alerts: enable/disable DM notifications to the connected account
-- GS: interactive mass DM with confirmation + delay + failed IDs report
+- GS: interactive mass DM with confirmation, delay, failed IDs report, hard limit (50 recipients) and 30-minute global cooldown
 
 ## Requirements
 
@@ -64,11 +64,8 @@ npm run build
 ```
 
 > [!IMPORTANT]
-> TypeScript does not copy JSON files to `dist/`. In production you must copy config manually:
->
-> ```bash
-> cp src/config.json dist/config.json
-> ```
+> The build script automatically copies `src/config.json` to `dist/config.json` via a postbuild step.
+> Ensure that `examples/basic/src/config.json` exists **before** running `npm run build`.
 
 ## Run
 
