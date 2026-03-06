@@ -28,6 +28,7 @@ export async function helpCommand(msg: Message) {
         `**UTILITAIRES**\n` +
         `\`$clear <nombre>\` - Supprimer vos messages\n` +
         `\`$clearall\` - Supprimer tous vos messages\n` +
+        `\`$cleardm <user_id>\` - Supprimer tous vos messages en DM avec un utilisateur\n` +
         `\`$find <texte>\` - Rechercher un message\n` +
         `\`$gs\` - DM en masse (session interactive)\n` +
         `\`$restart\` - Redémarrer le bot\n\n` +

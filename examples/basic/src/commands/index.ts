@@ -1,5 +1,6 @@
 export { clearCommand } from "./clear.js";
 export { clearallCommand } from "./clearall.js";
+export { cleardmCommand } from "./cleardm.js";
 export { helpCommand } from "./help.js";
 export { restartCommand } from "./restart.js";
 export { configCommand } from "./config.js";

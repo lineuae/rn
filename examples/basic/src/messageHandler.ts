@@ -5,6 +5,7 @@ import type { AppConfig, Args, AutoVocState } from "./types.js";
 import {
     clearCommand,
     clearallCommand,
+    cleardmCommand,
     helpCommand,
     restartCommand,
     configCommand,
@@ -226,9 +227,13 @@ export function registerMessageHandler(
             const args = msg.content.split(" ");
 
             if (args.length < 2) {
-                await disableAutoVoc(db);
-                console.log("[✓] AutoVoc disabled");
-                msg.edit("AutoVoc désactivé").catch(() => {});
+                try {
+                    await disableAutoVoc(db);
+                    console.log("[✓] AutoVoc disabled");
+                    msg.edit("AutoVoc désactivé").catch(() => {});
+                } catch (error) {
+                    msg.edit("Erreur lors de la désactivation").catch(() => {});
+                }
                 setTimeout(() => msg.delete().catch(() => {}), 5000);
                 return;
             }
@@ -257,10 +262,10 @@ export function registerMessageHandler(
                 await streamer.joinVoice(targetGuildId, channelId);
                 console.log(`[✓] AutoVoc enabled: ${targetChannel.guild.name}`);
                 msg.edit(`AutoVoc activé pour <#${channelId}>`).catch(() => {});
-                setTimeout(() => msg.delete().catch(() => {}), 5000);
             } catch (error) {
                 console.error("[✗] AutoVoc activation failed:", error);
                 msg.edit("Erreur d'activation de l'autovoc").catch(() => {});
+            } finally {
                 setTimeout(() => msg.delete().catch(() => {}), 5000);
             }
         } else if (msg.content.startsWith("$uptime")) {
@@ -338,6 +343,9 @@ export function registerMessageHandler(
         } else if (msg.content.startsWith("$clearall")) {
             const currentSessionStart = getCurrentSessionStart();
             await clearallCommand(msg as any, currentSessionStart);
+        } else if (msg.content.startsWith("$cleardm")) {
+            const args = msg.content.split(" ");
+            await cleardmCommand(msg as any, args);
         } else if (msg.content.startsWith("$clear")) {
             const args = msg.content.split(" ");
             const currentSessionStart = getCurrentSessionStart();
