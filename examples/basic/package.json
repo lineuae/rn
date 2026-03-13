@@ -1,12 +1,12 @@
 {
-    "name": "@line/discord-bot",
+    "name": "@line/discord-bot-basic",
     "version": "1.0.0",
     "description": "",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "module",
     "dependencies": {
-        "@dank074/discord-video-stream": "^5.0.0",
+        "@line/discord-bot": "file:../..",
         "discord.js-selfbot-v13": "^3.5.1",
         "mongodb": "^6.3.0"
     },

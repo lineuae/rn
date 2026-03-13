@@ -1,5 +1,5 @@
 import { Client } from "discord.js-selfbot-v13";
-import { Streamer } from "@dank074/discord-video-stream";
+import { Streamer } from "@line/discord-bot";
 import type { Db } from "mongodb";
 import rawConfig from "./config.json" with { type: "json" };
 import type { AppConfig, AutoVocState } from "./types.js";

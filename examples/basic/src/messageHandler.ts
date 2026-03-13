@@ -1,5 +1,5 @@
 import { StageChannel, type Message } from "discord.js-selfbot-v13";
-import { Streamer, prepareStream, playStream, Utils } from "@dank074/discord-video-stream";
+import { Streamer, prepareStream, playStream, Utils } from "@line/discord-bot";
 import type { Db } from "mongodb";
 import type { AppConfig, Args, AutoVocState } from "./types.js";
 import {
