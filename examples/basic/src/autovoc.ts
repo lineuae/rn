@@ -1,4 +1,4 @@
-import type { Streamer } from "@dank074/discord-video-stream";
+import type { Streamer } from "@line/discord-bot";
 import type { AutoVocState } from "./types.js";
 
 export function startAutoReconnect(
